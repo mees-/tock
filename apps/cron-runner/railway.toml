@@ -1,0 +1,7 @@
+[build]
+builder = "RAILPACK"
+
+[deploy]
+startCommand = "bun apps/cron-runner/src/index.ts"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
