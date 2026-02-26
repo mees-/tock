@@ -5,9 +5,9 @@ import { useMutation } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
 import { usePostHog } from "posthog-js/react"
 
-const SETUP_MUTATION = graphql(`
-  mutation Setup($input: SetupInput!) {
-    setup(input: $input) {
+const REGISTER_MUTATION = graphql(`
+  mutation Register($input: RegisterInput!) {
+    register(input: $input) {
       token
       refreshToken
       user {
@@ -22,19 +22,26 @@ const SETUP_MUTATION = graphql(`
 export default function SetupPage() {
   const [, navigate] = useLocation()
   const setAuth = useAuthStore(s => s.setAuth)
-  const [, setup] = useMutation(SETUP_MUTATION)
+  const [, register] = useMutation(REGISTER_MUTATION)
   const posthog = usePostHog()
 
-  async function handleSubmit(username: string, password: string): Promise<string | null> {
-    const result = await setup({ input: { username, password } })
+  async function handleSubmit(
+    username: string,
+    password: string,
+  ): Promise<string | null> {
+    const result = await register({ input: { username, password } })
     if (result.error != null) {
-      const message = result.error.graphQLErrors[0]?.message ?? result.error.message
+      const message =
+        result.error.graphQLErrors[0]?.message ?? result.error.message
       return message ?? "Setup failed"
     }
-    const data = result.data?.setup
+    const data = result.data?.register
     if (data == null) return "Setup failed"
     setAuth(data.token, data.refreshToken, data.user)
-    posthog.identify(data.user.id.toString(), { username: data.user.username, role: data.user.role })
+    posthog.identify(data.user.id.toString(), {
+      username: data.user.username,
+      role: data.user.role,
+    })
     posthog.capture("admin_setup_completed", { username: data.user.username })
     navigate("/")
     return null

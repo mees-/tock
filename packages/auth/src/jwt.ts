@@ -25,22 +25,27 @@ function isValidPayload(payload: unknown): payload is JWTPayload {
 export async function signJWT(
   payload: Omit<JWTPayload, "iat" | "exp">,
   secret: string,
-  expiresIn: string,
+  expiresAt: number,
 ): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(expiresIn)
+    .setExpirationTime(expiresAt)
     .sign(encodeSecret(secret))
 }
 
-export async function verifyJWT(token: string, secret: string): Promise<JWTPayload> {
+export async function verifyJWT(
+  token: string,
+  secret: string,
+): Promise<JWTPayload> {
   const { payload } = await jwtVerify(token, encodeSecret(secret))
   if (!isValidPayload(payload)) throw new Error("Invalid JWT payload")
   return payload
 }
 
-export function extractBearerToken(authHeader: string | null | undefined): string | null {
+export function extractBearerToken(
+  authHeader: string | null | undefined,
+): string | null {
   if (authHeader == null) return null
   const parts = authHeader.split(" ")
   if (parts.length !== 2 || parts[0] !== "Bearer") return null

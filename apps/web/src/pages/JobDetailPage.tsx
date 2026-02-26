@@ -24,9 +24,7 @@ const JobDetailQuery = graphql(`
       timezone
       isActive
       status
-    }
-    jobRuns(jobId: $id, limit: 50) {
-      runs {
+      runs(amount: 50) {
         id
         triggeredAt
         status
@@ -36,7 +34,6 @@ const JobDetailQuery = graphql(`
         responseHeaders
         errorMessage
       }
-      total
     }
   }
 `)
@@ -71,7 +68,8 @@ export default function JobDetailPage() {
   const [, deleteJob] = useMutation(DeleteJobMutation)
 
   const cronExpression = data?.job?.cronExpression
-  const intervalMs = cronExpression != null ? smallestCronIntervalMs([cronExpression]) : 60_000
+  const intervalMs =
+    cronExpression != null ? smallestCronIntervalMs([cronExpression]) : 60_000
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -81,10 +79,11 @@ export default function JobDetailPage() {
   }, [intervalMs, reexecuteQuery])
 
   if (fetching && data == null) return <p className="text-zinc-500">Loading…</p>
-  if (data?.job == null) return <p className="text-red-500 dark:text-red-400">Job not found</p>
+  if (data?.job == null)
+    return <p className="text-red-500 dark:text-red-400">Job not found</p>
 
   const { job } = data
-  const runs = data.jobRuns.runs
+  const runs = job.runs
 
   async function handleDelete() {
     if (!confirm(`Delete job "${job.name}"? This cannot be undone.`)) return
@@ -100,8 +99,14 @@ export default function JobDetailPage() {
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">{job.name}</h1>
-          {job.description !== "" && <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{job.description}</p>}
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
+            {job.name}
+          </h1>
+          {job.description !== "" && (
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              {job.description}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -132,10 +137,14 @@ export default function JobDetailPage() {
 
       {/* Config */}
       <div className="mb-8 rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">Configuration</h2>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          Configuration
+        </h2>
         <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
           <ConfigRow label="Status">
-            <StatusBadge status={isJobStatus(job.status) ? job.status : "active"} />
+            <StatusBadge
+              status={isJobStatus(job.status) ? job.status : "active"}
+            />
           </ConfigRow>
           <ConfigRow label="Method & Endpoint">
             <span className="font-mono">
@@ -146,14 +155,19 @@ export default function JobDetailPage() {
             <span className="font-mono">{job.cronExpression}</span>
           </ConfigRow>
           <ConfigRow label="Timezone">{job.timezone}</ConfigRow>
-          {Object.keys(parseJson<Record<string, string>>(job.headers) ?? {}).length > 0 && (
+          {Object.keys(parseJson<Record<string, string>>(job.headers) ?? {})
+            .length > 0 && (
             <ConfigRow label="Headers" className="col-span-2">
-              <pre className="overflow-auto rounded bg-zinc-100 p-2 text-xs dark:bg-zinc-800">{job.headers}</pre>
+              <pre className="overflow-auto rounded bg-zinc-100 p-2 text-xs dark:bg-zinc-800">
+                {job.headers}
+              </pre>
             </ConfigRow>
           )}
           {job.body != null && (
             <ConfigRow label="Body" className="col-span-2">
-              <pre className="overflow-auto rounded bg-zinc-100 p-2 text-xs dark:bg-zinc-800">{job.body}</pre>
+              <pre className="overflow-auto rounded bg-zinc-100 p-2 text-xs dark:bg-zinc-800">
+                {job.body}
+              </pre>
             </ConfigRow>
           )}
         </div>
@@ -162,7 +176,7 @@ export default function JobDetailPage() {
       {/* Run history */}
       <div>
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
-          Run history ({data.jobRuns.total} total)
+          Run history
         </h2>
         <RunsTable runs={runs} jobId={id} />
       </div>
@@ -170,7 +184,15 @@ export default function JobDetailPage() {
   )
 }
 
-function ConfigRow({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+function ConfigRow({
+  label,
+  className,
+  children,
+}: {
+  label: string
+  className?: string
+  children: React.ReactNode
+}) {
   return (
     <div className={className}>
       <dt className="mb-1 text-xs font-medium text-zinc-500">{label}</dt>

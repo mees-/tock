@@ -9,9 +9,9 @@ import DashboardPage from "@/pages/DashboardPage"
 import NewJobPage from "@/pages/NewJobPage"
 import JobDetailPage from "@/pages/JobDetailPage"
 
-const HasUsersQuery = graphql(`
-  query HasUsers {
-    hasUsers
+const CanSignupQuery = graphql(`
+  query CanSignup {
+    canSignup
   }
 `)
 
@@ -23,13 +23,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const token = useAuthStore(s => s.token)
-  const [{ data }] = useQuery({ query: HasUsersQuery })
+  const [{ data }] = useQuery({ query: CanSignupQuery })
 
-  // Show setup page first if no users exist yet and not already authenticated
-  if (data?.hasUsers === false && token == null) {
+  // Show setup page if signup is available and user is not authenticated
+  if (data?.canSignup === true && token == null) {
     return (
       <Switch>
         <Route path="/setup" component={SetupPage} />
+        <Route path="/login" component={LoginPage} />
         <Route>
           <Redirect to="/setup" />
         </Route>

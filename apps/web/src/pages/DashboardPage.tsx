@@ -11,12 +11,14 @@ import { usePostHog } from "posthog-js/react"
 
 const DashboardQuery = graphql(`
   query Dashboard {
-    stats {
-      totalJobs
-      activeJobs
-      totalRunsToday
-      successRateLast24h
-      avgDurationLast24h
+    me {
+      stats {
+        totalJobs
+        activeJobs
+        totalRunsToday
+        successRateLast24h
+        avgDurationLast24h
+      }
     }
     jobs {
       id
@@ -42,12 +44,16 @@ const ToggleJobMutation = graphql(`
 
 export default function DashboardPage() {
   const [, navigate] = useLocation()
-  const [{ data, fetching }, reexecuteQuery] = useQuery({ query: DashboardQuery })
+  const [{ data, fetching }, reexecuteQuery] = useQuery({
+    query: DashboardQuery,
+  })
   const [, toggleJob] = useMutation(ToggleJobMutation)
   const posthog = usePostHog()
 
   const jobs = data?.jobs ?? []
-  const activeExpressions = jobs.filter(j => j.isActive).map(j => j.cronExpression)
+  const activeExpressions = jobs
+    .filter(j => j.isActive)
+    .map(j => j.cronExpression)
   const intervalMs = smallestCronIntervalMs(activeExpressions)
 
   useEffect(() => {
@@ -57,13 +63,20 @@ export default function DashboardPage() {
     return () => clearInterval(timer)
   }, [intervalMs, reexecuteQuery])
 
-  const successPct = data?.stats != null ? `${(data.stats.successRateLast24h * 100).toFixed(1)}%` : "—"
-  const avgDuration = data?.stats?.avgDurationLast24h != null ? `${Math.round(data.stats.avgDurationLast24h)}ms` : "—"
+  const stats = data?.me?.stats
+  const successPct =
+    stats != null ? `${(stats.successRateLast24h * 100).toFixed(1)}%` : "—"
+  const avgDuration =
+    stats?.avgDurationLast24h != null
+      ? `${Math.round(stats.avgDurationLast24h)}ms`
+      : "—"
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
+          Dashboard
+        </h1>
         <Link
           href="/jobs/new"
           className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors"
@@ -78,10 +91,14 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatsCard label="Total jobs" value={data?.stats.totalJobs ?? 0} />
-            <StatsCard label="Active jobs" value={data?.stats.activeJobs ?? 0} />
-            <StatsCard label="Runs today" value={data?.stats.totalRunsToday ?? 0} />
-            <StatsCard label="Success rate (24h)" value={successPct} sub={`Avg ${avgDuration}`} />
+            <StatsCard label="Total jobs" value={stats?.totalJobs ?? 0} />
+            <StatsCard label="Active jobs" value={stats?.activeJobs ?? 0} />
+            <StatsCard label="Runs today" value={stats?.totalRunsToday ?? 0} />
+            <StatsCard
+              label="Success rate (24h)"
+              value={successPct}
+              sub={`Avg ${avgDuration}`}
+            />
           </div>
 
           {jobs.length === 0 ? (
@@ -99,10 +116,18 @@ export default function DashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">Name</th>
-                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">Endpoint</th>
-                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">Schedule</th>
-                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">Status</th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">
+                      Endpoint
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">
+                      Schedule
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-zinc-500 dark:text-zinc-400">
+                      Status
+                    </th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -114,8 +139,14 @@ export default function DashboardPage() {
                       className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
                     >
                       <td className="px-4 py-3">
-                        <p className="font-medium text-zinc-900 dark:text-white">{job.name}</p>
-                        {job.description !== "" && <p className="mt-0.5 text-xs text-zinc-500">{job.description}</p>}
+                        <p className="font-medium text-zinc-900 dark:text-white">
+                          {job.name}
+                        </p>
+                        {job.description !== "" && (
+                          <p className="mt-0.5 text-xs text-zinc-500">
+                            {job.description}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
@@ -126,7 +157,11 @@ export default function DashboardPage() {
                         {job.cronExpression}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={isJobStatus(job.status) ? job.status : "active"} />
+                        <StatusBadge
+                          status={
+                            isJobStatus(job.status) ? job.status : "active"
+                          }
+                        />
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button

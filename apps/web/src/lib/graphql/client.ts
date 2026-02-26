@@ -5,9 +5,19 @@ import { useAuthStore } from "@/lib/auth/auth-store"
 
 const REFRESH_MUTATION = `
   mutation RefreshToken($input: RefreshTokenInput!) {
-    refreshToken(input: $input) { token }
+    refreshToken(input: $input) {
+      token
+      refreshToken
+      user { id username role }
+    }
   }
 `
+
+type RefreshPayload = {
+  token: string
+  refreshToken: string
+  user: { id: number; username: string; role: string }
+}
 
 export const client = new Client({
   url: env.GRAPHQL_ENDPOINT,
@@ -20,10 +30,14 @@ export const client = new Client({
       return {
         addAuthToOperation(operation) {
           if (token == null) return operation
-          return utils.appendHeaders(operation, { Authorization: `Bearer ${token}` })
+          return utils.appendHeaders(operation, {
+            Authorization: `Bearer ${token}`,
+          })
         },
         didAuthError(error) {
-          return error.graphQLErrors.some(e => e.extensions?.code === "UNAUTHENTICATED")
+          return error.graphQLErrors.some(
+            e => e.extensions?.code === "UNAUTHENTICATED",
+          )
         },
         async refreshAuth() {
           const refreshToken = useAuthStore.getState().refreshToken
@@ -36,13 +50,19 @@ export const client = new Client({
           const res = await fetch(env.GRAPHQL_ENDPOINT, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: REFRESH_MUTATION, variables: { input: { token: refreshToken } } }),
+            body: JSON.stringify({
+              query: REFRESH_MUTATION,
+              variables: { input: { token: refreshToken } },
+            }),
           })
-          const body: { data?: { refreshToken?: { token: string } } } = await res.json()
-          const newToken = body?.data?.refreshToken?.token
-          if (newToken != null) {
-            token = newToken
-            useAuthStore.getState().setAuth(newToken, refreshToken, useAuthStore.getState().user)
+          const body: { data?: { refreshToken?: RefreshPayload } } =
+            await res.json()
+          const payload = body?.data?.refreshToken
+          if (payload != null) {
+            token = payload.token
+            useAuthStore
+              .getState()
+              .setAuth(payload.token, payload.refreshToken, payload.user)
           } else {
             token = null
             useAuthStore.getState().clearAuth()

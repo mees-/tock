@@ -1,7 +1,8 @@
 import { builder } from "../builder"
 import type { DbJob } from "database"
 import { jobRuns } from "database"
-import { eq, desc } from "drizzle-orm"
+import { eq, desc, and, sql } from "drizzle-orm"
+import { JobRunRef } from "./job-run"
 
 const HEALTH_WINDOW = 100
 const FLAKY_THRESHOLD = 0.2
@@ -9,21 +10,21 @@ const FAILING_THRESHOLD = 0.5
 
 export const JobRef = builder.objectRef<DbJob>("Job").implement({
   fields: t => ({
-    id: t.exposeInt("id", { nullable: false }),
-    userId: t.exposeInt("userId", { nullable: false }),
-    name: t.exposeString("name", { nullable: false }),
-    description: t.exposeString("description", { nullable: false }),
-    endpoint: t.exposeString("endpoint", { nullable: false }),
-    method: t.exposeString("method", { nullable: false }),
+    id: t.exposeInt("id"),
+    userId: t.exposeInt("userId"),
+    name: t.exposeString("name"),
+    description: t.exposeString("description"),
+    endpoint: t.exposeString("endpoint"),
+    method: t.exposeString("method"),
     headers: t.field({
       type: "String",
       nullable: false,
       resolve: j => JSON.stringify(j.headers),
     }),
     body: t.exposeString("body", { nullable: true }),
-    cronExpression: t.exposeString("cronExpression", { nullable: false }),
-    timezone: t.exposeString("timezone", { nullable: false }),
-    isActive: t.exposeBoolean("isActive", { nullable: false }),
+    cronExpression: t.exposeString("cronExpression"),
+    timezone: t.exposeString("timezone"),
+    isActive: t.exposeBoolean("isActive"),
     status: t.field({
       type: "String",
       nullable: false,
@@ -41,6 +42,27 @@ export const JobRef = builder.objectRef<DbJob>("Job").implement({
         if (rate >= FAILING_THRESHOLD) return "failing"
         if (rate >= FLAKY_THRESHOLD) return "flaky"
         return "active"
+      },
+    }),
+    runs: t.field({
+      type: [JobRunRef],
+      args: {
+        amount: t.arg.int({ defaultValue: 25, required: false }),
+        cursor: t.arg.id({ required: false }),
+      },
+      resolve: async (job, { amount, cursor }, ctx) => {
+        const cursorId = cursor ? parseInt(cursor) : null
+        return await ctx.db
+          .select()
+          .from(jobRuns)
+          .where(
+            and(
+              eq(jobRuns.jobId, job.id),
+              cursorId != null ? eq(jobRuns.id, cursorId) : sql`1 = 1`,
+            ),
+          )
+          .limit(amount ?? 25)
+          .orderBy(desc(jobRuns.triggeredAt))
       },
     }),
     createdAt: t.field({
