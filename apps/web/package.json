@@ -12,9 +12,12 @@
   },
   "dependencies": {
     "@urql/exchange-auth": "^3.0.0",
+    "croner": "catalog:",
+    "cronstrue": "^3.13.0",
     "gql.tada": "^1.8.10",
     "graphql": "catalog:",
     "lucide-react": "^0.475.0",
+    "luxon": "catalog:",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "urql": "^5.0.1",
@@ -22,6 +25,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@types/luxon": "catalog:",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",

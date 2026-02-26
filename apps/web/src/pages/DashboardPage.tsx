@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { Link } from "wouter"
+import { Link, useLocation } from "wouter"
 import { useQuery, useMutation } from "urql"
 import { Plus } from "lucide-react"
 import { graphql } from "@/lib/graphql/graphql"
@@ -40,6 +40,7 @@ const ToggleJobMutation = graphql(`
 `)
 
 export default function DashboardPage() {
+  const [, navigate] = useLocation()
   const [{ data, fetching }, reexecuteQuery] = useQuery({ query: DashboardQuery })
   const [, toggleJob] = useMutation(ToggleJobMutation)
 
@@ -105,14 +106,13 @@ export default function DashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {jobs.map(job => (
-                    <tr key={job.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                    <tr
+                      key={job.id}
+                      onClick={() => navigate(`/jobs/${job.id}`)}
+                      className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                    >
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/jobs/${job.id}`}
-                          className="font-medium text-zinc-900 hover:text-emerald-600 dark:text-white dark:hover:text-emerald-400"
-                        >
-                          {job.name}
-                        </Link>
+                        <p className="font-medium text-zinc-900 dark:text-white">{job.name}</p>
                         {job.description !== "" && <p className="mt-0.5 text-xs text-zinc-500">{job.description}</p>}
                       </td>
                       <td className="px-4 py-3">
@@ -128,7 +128,8 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
-                          onClick={async () => {
+                          onClick={async e => {
+                            e.stopPropagation()
                             await toggleJob({ id: job.id })
                             reexecuteQuery({ requestPolicy: "network-only" })
                           }}

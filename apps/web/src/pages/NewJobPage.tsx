@@ -1,8 +1,11 @@
-import { useState } from "react"
+import { useEffect, useMemo, useReducer, useState } from "react"
 import { useLocation } from "wouter"
 import { useMutation } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
 import { inputCls as baseInputCls } from "@/lib/styles"
+import cronstrue from "cronstrue"
+import { Cron } from "croner"
+import { DateTime } from "luxon"
 
 const CreateJobMutation = graphql(`
   mutation CreateJob($input: CreateJobInput!) {
@@ -26,9 +29,15 @@ const COMMON_HEADERS = [
   "X-Request-ID",
 ]
 
-const CRON_FIELDS = ["sec", "min", "hour", "day", "mon", "wday"]
-
 type Header = { key: string; value: string }
+
+function describeCron(expr: string): string | null {
+  try {
+    return cronstrue.toString(expr)
+  } catch {
+    return null
+  }
+}
 
 function HeadersEditor({ headers, onChange }: { headers: Header[]; onChange: (headers: Header[]) => void }) {
   function addRow() {
@@ -107,6 +116,8 @@ export default function NewJobPage() {
   const [, createJob] = useMutation(CreateJobMutation)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [cronTouched, setCronTouched] = useState(false)
+  const [showBody, setShowBody] = useState(false)
 
   const [form, setForm] = useState({
     name: "",
@@ -117,6 +128,56 @@ export default function NewJobPage() {
     body: "",
     cronExpression: "0 * * * * *",
   })
+
+  const expressionNormalized = form.cronExpression.trim()
+
+  const [shouldUpdateNextRun, reloadNextRun] = useReducer(prev => prev + 1, 0)
+  const nextRunDate = useMemo(() => {
+    try {
+      const job = new Cron(
+        expressionNormalized,
+        {
+          paused: true,
+        },
+        () => {
+          // don't do anything, this serves only to calculate next run time
+        },
+      )
+
+      const nextRun = job.nextRun()
+      if (nextRun == null) {
+        return null
+      }
+      const date = DateTime.fromJSDate(nextRun)
+      if (date.isValid) {
+        return date
+      } else {
+        return null
+      }
+    } catch {
+      return null
+    }
+  }, [expressionNormalized, shouldUpdateNextRun])
+
+  useEffect(() => {
+    if (nextRunDate == null) {
+      return
+    }
+    const waitTime = nextRunDate.diffNow().toMillis()
+
+    const timer = setTimeout(() => {
+      reloadNextRun()
+    }, waitTime)
+
+    return () => clearTimeout(timer)
+  }, [nextRunDate, reloadNextRun])
+
+  const nextRunDateFormatted = useMemo(() => {
+    if (nextRunDate == null) {
+      return null
+    }
+    return nextRunDate.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)
+  }, [nextRunDate])
 
   function update<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -138,7 +199,7 @@ export default function NewJobPage() {
         endpoint: form.endpoint,
         method: form.method,
         headers: JSON.stringify(headersObj),
-        body: form.body || undefined,
+        body: showBody ? form.body || undefined : undefined,
         cronExpression: form.cronExpression,
       },
     })
@@ -154,8 +215,10 @@ export default function NewJobPage() {
     navigate(id != null ? `/jobs/${id}` : "/jobs")
   }
 
+  const cronDescription = describeCron(expressionNormalized)
+
   return (
-    <div className="max-w-2xl">
+    <div className="mx-auto max-w-2xl">
       <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white">New job</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -210,20 +273,25 @@ export default function NewJobPage() {
           <input
             type="text"
             value={form.cronExpression}
-            onChange={e => update("cronExpression", e.target.value)}
+            onChange={e => {
+              update("cronExpression", e.target.value)
+              setCronTouched(true)
+            }}
             required
             placeholder="0 * * * * *"
             className={`${inputCls} font-mono`}
           />
-          <div className="mt-1.5 grid grid-cols-6 gap-1 text-center font-mono text-[10px] text-zinc-500 dark:text-zinc-600">
-            {CRON_FIELDS.map(f => (
-              <span key={f} className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">
-                {f}
-              </span>
-            ))}
-          </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-600">
-            Example: <code className="text-zinc-600 dark:text-zinc-400">0 * * * * *</code> = every minute at second 0.
+            {!cronTouched ? "Example: " : ""}
+            {cronDescription != null ? (
+              <>
+                {cronDescription}
+                <br />
+                {nextRunDateFormatted != null && cronTouched ? ` Next at: ${nextRunDateFormatted}` : ""}
+              </>
+            ) : (
+              <span className="text-red-500 dark:text-red-400">Invalid cron expression</span>
+            )}
           </p>
         </Field>
 
@@ -231,15 +299,47 @@ export default function NewJobPage() {
           <HeadersEditor headers={form.headers} onChange={v => update("headers", v)} />
         </Field>
 
-        <Field label="Request body" optional>
-          <textarea
-            value={form.body}
-            onChange={e => update("body", e.target.value)}
-            rows={4}
-            placeholder='{"key": "value"}'
-            className={`${inputCls} font-mono`}
-          />
-        </Field>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            Request body
+            <span className="ml-1 text-xs text-zinc-400 dark:text-zinc-600">(optional)</span>
+          </label>
+          {showBody ? (
+            <div className="space-y-2">
+              <textarea
+                value={form.body}
+                onChange={e => update("body", e.target.value)}
+                rows={4}
+                placeholder='{"key": "value"}'
+                className={`${inputCls} font-mono`}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBody(false)
+                  update("body", "")
+                }}
+                className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                Remove body
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowBody(true)}
+              className="flex items-center gap-1.5 text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              Add body
+            </button>
+          )}
+        </div>
 
         <div className="flex gap-3 pt-2">
           <button
