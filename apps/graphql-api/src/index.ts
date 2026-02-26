@@ -5,17 +5,16 @@ import { logger } from "./logger"
 import { env } from "./env"
 
 async function main() {
+  const server = createServer().start()
+
   // Check if this is the first startup (no users exist)
-  const [row] = await db.select({ cnt: count() }).from(users)
-  if ((row?.cnt ?? 0) === 0) {
+  const count = await db.$count(users)
+  if (count === 0) {
     logger.info(
       { port: env.PORT },
-      `No users found. Visit http://localhost:${env.PORT}/setup to create the first admin account.`,
+      `No users found. Visit http://${server.hostname}:${server.port}/setup to create the first admin account.`,
     )
   }
-
-  const server = createServer()
-  server.start()
 }
 
 main().catch(err => {
