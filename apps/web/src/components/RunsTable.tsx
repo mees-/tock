@@ -4,6 +4,7 @@ import { parseJson } from "@/lib/parseJson"
 import { isRunStatus } from "@/lib/typeGuards"
 import StatusBadge from "./StatusBadge"
 import AnimatedNumber from "./AnimatedNumber"
+import { usePostHog } from "posthog-js/react"
 
 interface Run {
   id: number
@@ -24,13 +25,15 @@ function tryFormatJson(raw: string): string {
   }
 }
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, jobId }: { text: string; jobId?: number }) {
   const [copied, setCopied] = useState(false)
+  const posthog = usePostHog()
 
   function handleCopy() {
     void navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+      if (jobId != null) posthog.capture("response_body_copied", { job_id: jobId })
     })
   }
 
@@ -44,7 +47,7 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-export default function RunsTable({ runs }: { runs: Run[] }) {
+export default function RunsTable({ runs, jobId }: { runs: Run[]; jobId?: number }) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   if (runs.length === 0) {
@@ -124,7 +127,7 @@ export default function RunsTable({ runs }: { runs: Run[] }) {
                                 {tryFormatJson(run.responseBody)}
                               </pre>
                               <div className="absolute right-2 top-2">
-                                <CopyButton text={tryFormatJson(run.responseBody)} />
+                                <CopyButton text={tryFormatJson(run.responseBody)} jobId={jobId} />
                               </div>
                             </div>
                           </div>

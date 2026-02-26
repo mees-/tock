@@ -3,6 +3,7 @@ import { useAuthStore } from "@/lib/auth/auth-store"
 import AuthForm from "@/components/AuthForm"
 import { useMutation } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
+import { usePostHog } from "posthog-js/react"
 
 const LOGIN_MUTATION = graphql(`
   mutation Login($input: LoginInput!) {
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const [, navigate] = useLocation()
   const setAuth = useAuthStore(s => s.setAuth)
   const [, login] = useMutation(LOGIN_MUTATION)
+  const posthog = usePostHog()
 
   async function handleSubmit(username: string, password: string): Promise<string | null> {
     const result = await login({ input: { username, password } })
@@ -32,6 +34,8 @@ export default function LoginPage() {
     const data = result.data?.login
     if (data == null) return "Login failed"
     setAuth(data.token, data.refreshToken, data.user)
+    posthog.identify(data.user.id.toString(), { username: data.user.username, role: data.user.role })
+    posthog.capture("user_logged_in", { username: data.user.username })
     navigate("/")
     return null
   }

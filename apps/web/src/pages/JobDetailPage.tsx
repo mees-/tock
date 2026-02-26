@@ -8,6 +8,7 @@ import { parseJson } from "@/lib/parseJson"
 import { isJobStatus } from "@/lib/typeGuards"
 import StatusBadge from "@/components/StatusBadge"
 import RunsTable from "@/components/RunsTable"
+import { usePostHog } from "posthog-js/react"
 
 const JobDetailQuery = graphql(`
   query JobDetail($id: Int!) {
@@ -59,6 +60,7 @@ export default function JobDetailPage() {
   const params = useParams<{ id: string }>()
   const [, navigate] = useLocation()
   const id = Number(params.id)
+  const posthog = usePostHog()
 
   const [{ data, fetching }, reexecuteQuery] = useQuery({
     query: JobDetailQuery,
@@ -86,7 +88,10 @@ export default function JobDetailPage() {
 
   async function handleDelete() {
     if (!confirm(`Delete job "${job.name}"? This cannot be undone.`)) return
-    await deleteJob({ id })
+    const result = await deleteJob({ id })
+    if (result.error == null) {
+      posthog.capture("job_deleted", { job_id: id })
+    }
     navigate("/jobs")
   }
 
@@ -101,7 +106,13 @@ export default function JobDetailPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={async () => {
-              await toggleJob({ id })
+              const result = await toggleJob({ id })
+              if (result.data != null) {
+                posthog.capture("job_toggled", {
+                  job_id: id,
+                  active: result.data.toggleJob.isActive,
+                })
+              }
               reexecuteQuery({ requestPolicy: "network-only" })
             }}
             className="flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 transition-colors dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-white"
@@ -153,7 +164,7 @@ export default function JobDetailPage() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
           Run history ({data.jobRuns.total} total)
         </h2>
-        <RunsTable runs={runs} />
+        <RunsTable runs={runs} jobId={id} />
       </div>
     </div>
   )

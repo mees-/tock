@@ -2,12 +2,16 @@ import { Link } from "wouter"
 import { Clock, LogOut } from "lucide-react"
 import { useAuthStore } from "@/lib/auth/auth-store"
 import { PropsWithChildren } from "react"
+import { usePostHog } from "posthog-js/react"
 
 export default function Layout({ children }: PropsWithChildren) {
   const user = useAuthStore(s => s.user)
   const clearAuth = useAuthStore(s => s.clearAuth)
+  const posthog = usePostHog()
 
   function logout() {
+    posthog.capture("user_logged_out")
+    posthog.reset()
     clearAuth()
   }
 

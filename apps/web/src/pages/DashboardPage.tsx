@@ -7,6 +7,7 @@ import { smallestCronIntervalMs } from "@/lib/cronInterval"
 import { isJobStatus } from "@/lib/typeGuards"
 import StatsCard from "@/components/StatsCard"
 import StatusBadge from "@/components/StatusBadge"
+import { usePostHog } from "posthog-js/react"
 
 const DashboardQuery = graphql(`
   query Dashboard {
@@ -43,6 +44,7 @@ export default function DashboardPage() {
   const [, navigate] = useLocation()
   const [{ data, fetching }, reexecuteQuery] = useQuery({ query: DashboardQuery })
   const [, toggleJob] = useMutation(ToggleJobMutation)
+  const posthog = usePostHog()
 
   const jobs = data?.jobs ?? []
   const activeExpressions = jobs.filter(j => j.isActive).map(j => j.cronExpression)
@@ -130,7 +132,13 @@ export default function DashboardPage() {
                         <button
                           onClick={async e => {
                             e.stopPropagation()
-                            await toggleJob({ id: job.id })
+                            const result = await toggleJob({ id: job.id })
+                            if (result.data != null) {
+                              posthog.capture("job_toggled", {
+                                job_id: job.id,
+                                active: result.data.toggleJob.isActive,
+                              })
+                            }
                             reexecuteQuery({ requestPolicy: "network-only" })
                           }}
                           className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"

@@ -6,6 +6,7 @@ import { inputCls as baseInputCls } from "@/lib/styles"
 import cronstrue from "cronstrue"
 import { Cron } from "croner"
 import { DateTime } from "luxon"
+import { usePostHog } from "posthog-js/react"
 
 const CreateJobMutation = graphql(`
   mutation CreateJob($input: CreateJobInput!) {
@@ -114,6 +115,7 @@ function HeadersEditor({ headers, onChange }: { headers: Header[]; onChange: (he
 export default function NewJobPage() {
   const [, navigate] = useLocation()
   const [, createJob] = useMutation(CreateJobMutation)
+  const posthog = usePostHog()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [cronTouched, setCronTouched] = useState(false)
@@ -210,6 +212,14 @@ export default function NewJobPage() {
       setError(result.error.graphQLErrors[0]?.message ?? "Failed to create job")
       return
     }
+
+    posthog.capture("job_created", {
+      method: form.method,
+      cron_expression: form.cronExpression,
+      has_body: showBody && form.body !== "",
+      has_headers: form.headers.some(h => h.key.trim() !== ""),
+      has_description: form.description !== "",
+    })
 
     const id = result.data?.createJob.id
     navigate(id != null ? `/jobs/${id}` : "/jobs")

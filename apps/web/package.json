@@ -11,6 +11,7 @@
     "gql-tada": "gql-tada generate-output"
   },
   "dependencies": {
+    "@posthog/react": "^1.8.1",
     "@urql/exchange-auth": "^3.0.0",
     "croner": "catalog:",
     "cronstrue": "^3.13.0",
@@ -18,6 +19,7 @@
     "graphql": "catalog:",
     "lucide-react": "^0.575.0",
     "luxon": "catalog:",
+    "posthog-js": "^1.354.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "urql": "^5.0.1",
@@ -25,12 +27,12 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
     "@types/luxon": "catalog:",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
-    "@tailwindcss/vite": "^4.2.1",
-    "tailwindcss": "^4.2.1",
     "@vitejs/plugin-react": "^5.1.4",
+    "tailwindcss": "^4.2.1",
     "typescript": "catalog:",
     "vite": "^7.3.1"
   }
