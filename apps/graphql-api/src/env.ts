@@ -6,8 +6,8 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   ALLOW_SIGNUP: z
     .string()
-    .transform(v => v === "true")
-    .default("false"),
+    .default("false")
+    .transform(v => v === "true"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 })
 
