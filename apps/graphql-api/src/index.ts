@@ -5,7 +5,7 @@ import { logger } from "./logger"
 import { env } from "./env"
 
 async function main() {
-  const server = createServer().start()
+  createServer()
 
   // Check if this is the first startup (no users exist)
   const count = await db.$count(users)

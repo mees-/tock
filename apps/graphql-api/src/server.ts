@@ -10,7 +10,10 @@ export function createServer() {
     schema,
     context: createContext,
     graphiql: env.NODE_ENV === "development",
-    cors: false,
+    cors: {
+      origin: "*",
+      credentials: false,
+    },
   })
 
   const server = createHttpServer(yoga)

@@ -25,23 +25,12 @@ export default function App() {
   const token = useAuthStore(s => s.token)
   const [{ data }] = useQuery({ query: CanSignupQuery })
 
-  // Show setup page if signup is available and user is not authenticated
-  if (data?.canSignup === true && token == null) {
-    return (
-      <Switch>
-        <Route path="/setup" component={SetupPage} />
-        <Route path="/login" component={LoginPage} />
-        <Route>
-          <Redirect to="/setup" />
-        </Route>
-      </Switch>
-    )
-  }
-
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      <Route path="/setup" component={SetupPage} />
+      {data?.canSignup === true && token == null && (
+        <Route path="/setup" component={SetupPage} />
+      )}
       <Route>
         <AuthGate>
           <Layout>
@@ -58,4 +47,8 @@ export default function App() {
       </Route>
     </Switch>
   )
+}
+
+function RedirectToLogin() {
+  return <Redirect to="/login" />
 }
