@@ -1,0 +1,51 @@
+import { useLocation } from "wouter"
+import { useAuthStore } from "@/lib/auth/auth-store"
+import AuthForm from "@/components/AuthForm"
+import { useMutation } from "urql"
+import { graphql } from "@/lib/graphql/graphql"
+
+const SETUP_MUTATION = graphql(`
+  mutation Setup($input: SetupInput!) {
+    setup(input: $input) {
+      token
+      refreshToken
+      user {
+        id
+        username
+        role
+      }
+    }
+  }
+`)
+
+export default function SetupPage() {
+  const [, navigate] = useLocation()
+  const setAuth = useAuthStore(s => s.setAuth)
+  const [, setup] = useMutation(SETUP_MUTATION)
+
+  async function handleSubmit(username: string, password: string): Promise<string | null> {
+    const result = await setup({ input: { username, password } })
+    if (result.error != null) {
+      const message = result.error.graphQLErrors[0]?.message ?? result.error.message
+      return message ?? "Setup failed"
+    }
+    const data = result.data?.setup
+    if (data == null) return "Setup failed"
+    setAuth(data.token, data.refreshToken, data.user)
+    navigate("/")
+    return null
+  }
+
+  return (
+    <AuthForm
+      title="Create admin account"
+      description="This is a one-time setup. Set up your admin credentials."
+      submitLabel="Create admin account"
+      loadingLabel="Creating account…"
+      usernameMinLength={3}
+      passwordMinLength={8}
+      passwordHint="Minimum 8 characters"
+      onSubmit={handleSubmit}
+    />
+  )
+}

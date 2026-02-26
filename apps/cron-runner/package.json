@@ -1,0 +1,23 @@
+{
+  "name": "cron-runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "database": "workspace:*",
+    "croner": "catalog:",
+    "drizzle-orm": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "pino-pretty": "^13.0.0",
+    "typescript": "catalog:"
+  }
+}

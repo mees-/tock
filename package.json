@@ -1,0 +1,19 @@
+{
+  "name": "tock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup-services": "docker-compose up -d",
+    "dev:setup": "pnpm run setup-services && pnpm run -F database db:dev-push",
+    "dev": "pnpm run dev:setup && pnpm --filter graphql-api generate-schema && (trap 'kill 0' INT TERM; pnpm -r --parallel dev & pnpm --filter graphql-api generate-schema:watch; wait)",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "db:push": "pnpm --filter database db:dev-push",
+    "db:studio": "pnpm --filter database db:studio",
+    "generate-schema": "pnpm --filter graphql-api generate-schema"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

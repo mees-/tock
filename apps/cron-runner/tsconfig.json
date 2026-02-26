@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["bun"],
+    "paths": {
+      "database": ["../../packages/database/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
