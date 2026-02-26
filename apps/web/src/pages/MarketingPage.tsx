@@ -13,7 +13,7 @@ import StatusBadge from "@/components/StatusBadge"
 import { useEffect } from "react"
 import { useCanSignup } from "@/lib/auth/canSignupHook"
 
-const GITHUB_URL = "https://github.com/meesvandongen/tock"
+const GITHUB_URL = "https://github.com/mees-/tock"
 
 const FAKE_RUNS = [
   {
@@ -233,12 +233,13 @@ export default function MarketingPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50">
-                    <th className="px-5 py-3.5 text-left font-medium text-zinc-500" />
-                    <th className="px-5 py-3.5 text-center font-semibold text-zinc-900">
+                    <th className="px-4 py-3 text-left font-medium text-zinc-500 sm:px-5 sm:py-3.5" />
+                    <th className="w-16 px-3 py-3 text-center font-semibold text-zinc-900 sm:w-auto sm:px-5 sm:py-3.5">
                       Tock
                     </th>
-                    <th className="px-5 py-3.5 text-center font-medium text-zinc-400">
-                      Cloudflare Cron
+                    <th className="w-16 px-3 py-3 text-center font-medium text-zinc-400 sm:w-auto sm:px-5 sm:py-3.5">
+                      <span className="hidden sm:inline">Cloudflare Cron</span>
+                      <span className="sm:hidden">CF Cron</span>
                     </th>
                   </tr>
                 </thead>
@@ -250,11 +251,13 @@ export default function MarketingPage() {
                     "Open source",
                   ].map(feature => (
                     <tr key={feature}>
-                      <td className="px-5 py-3.5 text-zinc-700">{feature}</td>
-                      <td className="px-5 py-3.5 text-center">
+                      <td className="px-4 py-3 text-zinc-700 sm:px-5 sm:py-3.5">
+                        {feature}
+                      </td>
+                      <td className="px-3 py-3 text-center sm:px-5 sm:py-3.5">
                         <Check size={16} className="mx-auto text-emerald-600" />
                       </td>
-                      <td className="px-5 py-3.5 text-center">
+                      <td className="px-3 py-3 text-center sm:px-5 sm:py-3.5">
                         <X size={16} className="mx-auto text-zinc-300" />
                       </td>
                     </tr>
@@ -290,7 +293,7 @@ export default function MarketingPage() {
                   <th className="px-4 py-3 text-left font-medium text-zinc-500">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left font-medium text-zinc-500">
+                  <th className="hidden px-4 py-3 text-left font-medium text-zinc-500 sm:table-cell">
                     HTTP
                   </th>
                   <th className="px-4 py-3 text-right font-medium text-zinc-500">
@@ -307,7 +310,7 @@ export default function MarketingPage() {
                     <td className="px-4 py-3">
                       <StatusBadge status={run.status} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden px-4 py-3 sm:table-cell">
                       {run.http != null ? (
                         <span
                           className={
