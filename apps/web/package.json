@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "gql-tada": "gql-tada generate-output"
+    "gql-tada": "gql-tada generate-output",
+    "start": "serve -s dist"
   },
   "dependencies": {
     "@posthog/react": "^1.8.1",
@@ -22,6 +23,7 @@
     "posthog-js": "^1.354.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "serve": "^14.2.5",
     "urql": "^5.0.1",
     "wouter": "^3.5.0",
     "zustand": "^5.0.3"
