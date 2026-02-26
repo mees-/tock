@@ -19,8 +19,11 @@ export default function Layout({ children }: PropsWithChildren) {
     <div className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-white">
       <div className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
         <header className="max-w-5xl mx-auto flex items-center justify-between px-6 py-3">
-          <Link href="/" className="flex items-center gap-2">
-            <Clock size={18} className="text-emerald-500 dark:text-emerald-400" />
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Clock
+              size={18}
+              className="text-emerald-500 dark:text-emerald-400"
+            />
             <span className="text-base font-bold tracking-tight">Tock</span>
           </Link>
 

@@ -7,12 +7,7 @@ import { graphql } from "@/lib/graphql/graphql"
 import { usePostHog } from "posthog-js/react"
 import { inputCls } from "@/lib/styles"
 import { Link } from "wouter"
-
-const CanSignupQuery = graphql(`
-  query CanSignup {
-    canSignup
-  }
-`)
+import { useCanSignup } from "@/lib/auth/canSignupHook"
 
 const REGISTER_MUTATION = graphql(`
   mutation Register($input: RegisterInput!) {
@@ -31,8 +26,7 @@ const REGISTER_MUTATION = graphql(`
 export default function SetupPage() {
   const [, navigate] = useLocation()
   const setAuth = useAuthStore(s => s.setAuth)
-  const [{ data: canSignupData }] = useQuery({ query: CanSignupQuery })
-  const canSignup = canSignupData?.canSignup ?? false
+  const canSignup = useCanSignup()
   const [, register] = useMutation(REGISTER_MUTATION)
   const posthog = usePostHog()
 
@@ -41,7 +35,7 @@ export default function SetupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
@@ -64,7 +58,7 @@ export default function SetupPage() {
       role: data.user.role,
     })
     posthog.capture("admin_setup_completed", { username: data.user.username })
-    navigate("/")
+    navigate("/dashboard")
   }
 
   return (
@@ -111,7 +105,7 @@ export default function SetupPage() {
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 required
-                disabled={canSignupData?.canSignup === false}
+                disabled={canSignup === false}
                 autoFocus
                 minLength={3}
                 className={inputCls}

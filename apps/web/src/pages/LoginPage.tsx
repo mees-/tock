@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
 import { usePostHog } from "posthog-js/react"
 import { inputCls } from "@/lib/styles"
+import { useCanSignup } from "@/lib/auth/canSignupHook"
 
 const LOGIN_MUTATION = graphql(`
   mutation Login($input: LoginInput!) {
@@ -21,25 +22,19 @@ const LOGIN_MUTATION = graphql(`
   }
 `)
 
-const CanSignupQuery = graphql(`
-  query CanSignupLogin {
-    canSignup
-  }
-`)
-
 export default function LoginPage() {
   const [, navigate] = useLocation()
   const setAuth = useAuthStore(s => s.setAuth)
   const [, login] = useMutation(LOGIN_MUTATION)
   const posthog = usePostHog()
-  const [{ data: signupData }] = useQuery({ query: CanSignupQuery })
+  const canSignup = useCanSignup()
 
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
@@ -62,7 +57,7 @@ export default function LoginPage() {
       role: data.user.role,
     })
     posthog.capture("user_logged_in", { username: data.user.username })
-    navigate("/")
+    navigate("/dashboard")
   }
 
   return (
@@ -126,7 +121,7 @@ export default function LoginPage() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
 
-          {signupData?.canSignup === true && (
+          {canSignup === true && (
             <p className="mt-4 text-center text-sm text-zinc-500">
               No account yet?{" "}
               <Link
