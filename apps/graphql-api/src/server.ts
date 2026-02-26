@@ -1,37 +1,24 @@
+import { createServer as createHttpServer } from "node:http"
 import { createYoga } from "graphql-yoga"
-import { Hono } from "hono"
 import { schema } from "./schema/index"
 import { createContext } from "./context"
 import { env } from "./env"
 import { logger } from "./logger"
 
 export function createServer() {
-  const yoga = createYoga<object>({
+  const yoga = createYoga({
     schema,
     context: createContext,
     graphiql: env.NODE_ENV === "development",
     cors: false,
   })
 
-  const app = new Hono()
+  const server = createHttpServer(yoga)
 
-  app.on(["GET", "POST"], "/graphql", c => yoga.handle(c.req.raw, {}))
-
-  return {
-    start() {
-      const server = Bun.serve({
-        port: env.PORT,
-        fetch: app.fetch,
-      })
-      logger.info(
-        { port: server.port, host: server.hostname },
-        `GraphQL API running on http://${server.hostname}:${env.PORT}/graphql`,
-      )
-      return {
-        stop: () => server.stop(),
-        port: server.port,
-        hostname: server.hostname,
-      }
-    },
-  }
+  server.listen(env.PORT, () => {
+    logger.info(
+      { port: env.PORT },
+      `GraphQL API running on http://0.0.0.0:${env.PORT}/graphql`,
+    )
+  })
 }

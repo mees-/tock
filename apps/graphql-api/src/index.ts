@@ -12,7 +12,7 @@ async function main() {
   if (count === 0) {
     logger.info(
       { port: env.PORT },
-      `No users found. Visit http://${server.hostname}:${server.port}/setup to create the first admin account.`,
+      `No users found. Open the app to create your first user`,
     )
   }
 }
