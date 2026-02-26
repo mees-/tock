@@ -1,5 +1,6 @@
 [build]
 builder = "RAILPACK"
+watchPatterns = ["apps/graphql-api/**", "packages/database/**", "packages/auth/**"]
 
 [deploy]
 preDeployCommand = ["pnpm run -F database migrate"]

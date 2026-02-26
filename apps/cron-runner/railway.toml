@@ -1,5 +1,6 @@
 [build]
 builder = "RAILPACK"
+watchPatterns = ["apps/cron-runner/**"]
 
 [deploy]
 startCommand = "bun apps/cron-runner/src/index.ts"

@@ -1,5 +1,6 @@
 [build]
 builder = "RAILPACK"
+watchPatterns = ["apps/web/**"]
 
 [deploy]
 startCommand = "pnpm --filter web preview -- --port $PORT --host 0.0.0.0"
