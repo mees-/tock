@@ -2,6 +2,7 @@
 builder = "RAILPACK"
 
 [deploy]
+preDeployCommand = ["pnpm run -F database migrate"]
 startCommand = "bun apps/graphql-api/src/index.ts"
 healthcheckPath = "/graphql?query=%7B__typename%7D"
 healthcheckTimeout = 30

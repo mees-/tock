@@ -12,12 +12,12 @@
     }
   },
   "scripts": {
-    "dev": "pnpm run db:studio",
+    "dev": "pnpm run studio",
     "typecheck": "tsc --noEmit",
-    "db:dev-push": "drizzle-kit push",
-    "db:generate-migration": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "dev-push": "drizzle-kit push",
+    "generate-migration": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "studio": "drizzle-kit studio"
   },
   "dependencies": {
     "dotenv": "^17.3.1",
