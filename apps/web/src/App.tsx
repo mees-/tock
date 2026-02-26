@@ -9,12 +9,6 @@ import DashboardPage from "@/pages/DashboardPage"
 import NewJobPage from "@/pages/NewJobPage"
 import JobDetailPage from "@/pages/JobDetailPage"
 
-const CanSignupQuery = graphql(`
-  query CanSignup {
-    canSignup
-  }
-`)
-
 function AuthGate({ children }: { children: React.ReactNode }) {
   const token = useAuthStore(s => s.token)
   if (token == null) return <Redirect to="/login" />
@@ -23,14 +17,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const token = useAuthStore(s => s.token)
-  const [{ data }] = useQuery({ query: CanSignupQuery })
 
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      {data?.canSignup === true && token == null && (
-        <Route path="/setup" component={SetupPage} />
-      )}
+
+      <Route path="/setup" component={SetupPage} />
+
       <Route>
         <AuthGate>
           <Layout>
