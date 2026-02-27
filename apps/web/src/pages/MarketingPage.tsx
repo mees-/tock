@@ -12,34 +12,36 @@ import { Link, useLocation } from "wouter"
 import StatusBadge from "@/components/StatusBadge"
 import { useEffect } from "react"
 import { useCanSignup } from "@/lib/auth/canSignupHook"
+import { DateTime } from "luxon"
+import { useMediaQuery } from "usehooks-ts"
 
 const GITHUB_URL = "https://github.com/mees-/tock"
 
 const FAKE_RUNS = [
   {
     id: 1,
-    triggeredAt: "Feb 26, 2026, 9:00 AM",
+    triggeredAt: DateTime.fromISO("2026-02-26T09:00:00Z"),
     status: "success" as const,
     http: 200,
     duration: "312ms",
   },
   {
     id: 2,
-    triggeredAt: "Feb 25, 2026, 9:00 AM",
+    triggeredAt: DateTime.fromISO("2026-02-25T09:00:00Z"),
     status: "failure" as const,
     http: 503,
     duration: "89ms",
   },
   {
     id: 3,
-    triggeredAt: "Feb 24, 2026, 9:00 AM",
+    triggeredAt: DateTime.fromISO("2026-02-24T09:00:00Z"),
     status: "timeout" as const,
     http: null,
     duration: "30000ms",
   },
   {
     id: 4,
-    triggeredAt: "Feb 23, 2026, 9:00 AM",
+    triggeredAt: DateTime.fromISO("2026-02-23T09:00:00Z"),
     status: "success" as const,
     http: 200,
     duration: "278ms",
@@ -49,6 +51,7 @@ const FAKE_RUNS = [
 export default function MarketingPage() {
   const canSignup = useCanSignup()
   const [, navigate] = useLocation()
+  const isMobile = useMediaQuery("(max-width: 768px)")
   useEffect(() => {
     if (!canSignup) {
       navigate("/login")
@@ -238,8 +241,9 @@ export default function MarketingPage() {
                       Tock
                     </th>
                     <th className="w-16 px-3 py-3 text-center font-medium text-zinc-400 sm:w-auto sm:px-5 sm:py-3.5">
-                      <span className="hidden sm:inline">Cloudflare Cron</span>
-                      <span className="sm:hidden">CF Cron</span>
+                      <span className="">
+                        {isMobile ? "Cloudflare" : "Cloudflare Cron"}
+                      </span>
                     </th>
                   </tr>
                 </thead>
@@ -293,7 +297,7 @@ export default function MarketingPage() {
                   <th className="px-4 py-3 text-left font-medium text-zinc-500">
                     Status
                   </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-zinc-500 sm:table-cell">
+                  <th className="px-4 py-3 text-left font-medium text-zinc-500">
                     HTTP
                   </th>
                   <th className="px-4 py-3 text-right font-medium text-zinc-500">
@@ -305,12 +309,14 @@ export default function MarketingPage() {
                 {FAKE_RUNS.map(run => (
                   <tr key={run.id} className="bg-zinc-950">
                     <td className="px-4 py-3 text-zinc-300">
-                      {run.triggeredAt}
+                      {isMobile
+                        ? run.triggeredAt.toLocaleString(DateTime.DATE_SHORT)
+                        : run.triggeredAt.toLocaleString(DateTime.DATETIME_MED)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={run.status} />
                     </td>
-                    <td className="hidden px-4 py-3 sm:table-cell">
+                    <td className="px-4 py-3">
                       {run.http != null ? (
                         <span
                           className={
