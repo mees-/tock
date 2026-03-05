@@ -22,6 +22,7 @@
     "hono": "^4.12.3",
     "luxon": "catalog:",
     "pino": "catalog:",
+    "stripe": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

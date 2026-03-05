@@ -11,7 +11,7 @@ async function main() {
   const count = await db.$count(users)
   if (count === 0) {
     logger.info(
-      { port: env.PORT },
+      { port: env.GRAPHQL_API_PORT },
       `No users found. Open the app to create your first user`,
     )
   }

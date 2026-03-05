@@ -3,6 +3,7 @@ import type { DbUser } from "database"
 import { jobs, jobRuns } from "database"
 import { eq, and, gte, count } from "drizzle-orm"
 import { StatsRef } from "./stats"
+import { SubscriptionRef, FREE_JOB_LIMIT } from "./subscription"
 
 export const UserRef = builder.objectRef<DbUser>("User").implement({
   fields: t => ({
@@ -75,6 +76,23 @@ export const UserRef = builder.objectRef<DbUser>("User").implement({
           totalRunsToday: todayRuns,
           successRateLast24h: successRate,
           avgDurationLast24h: avgDuration,
+        }
+      },
+    }),
+    subscription: t.field({
+      type: SubscriptionRef,
+      nullable: false,
+      resolve: async (user, _args, ctx) => {
+        ctx.requireAuth()
+        const [{ jobCount }] = await ctx.db
+          .select({ jobCount: count() })
+          .from(jobs)
+          .where(eq(jobs.userId, user.id))
+        return {
+          tier: user.subscriptionTier,
+          status: user.subscriptionStatus ?? null,
+          jobLimit: user.subscriptionTier === "free" ? FREE_JOB_LIMIT : null,
+          jobCount,
         }
       },
     }),

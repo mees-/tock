@@ -5,6 +5,7 @@ import "./types/user"
 import "./types/job"
 import "./types/job-run"
 import "./types/stats"
+import "./types/subscription"
 import "./queries/index"
 import "./mutations/index"
 

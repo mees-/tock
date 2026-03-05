@@ -1,6 +1,7 @@
 import { builder } from "../builder"
 import { UserRef } from "../types/user"
 import { JobRef } from "../types/job"
+import { PricingRef } from "../types/subscription"
 import { jobs, users } from "database"
 import { eq, and, desc } from "drizzle-orm"
 import { NotFoundError } from "../../errors"
@@ -61,5 +62,13 @@ builder.queryField("job", t =>
       if (job == null) throw new NotFoundError("Job")
       return job
     },
+  }),
+)
+
+builder.queryField("subscriptionPrices", t =>
+  t.field({
+    type: PricingRef,
+    nullable: false,
+    resolve: () => ({}), // resolve sub-fields independently
   }),
 )

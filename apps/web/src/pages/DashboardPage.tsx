@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { Link, useLocation } from "wouter"
+import { Zap } from "lucide-react"
 import { useQuery, useMutation } from "urql"
 import { Plus } from "lucide-react"
 import { graphql } from "@/lib/graphql/graphql"
@@ -18,6 +19,11 @@ const DashboardQuery = graphql(`
         totalRunsToday
         successRateLast24h
         avgDurationLast24h
+      }
+      subscription {
+        tier
+        jobLimit
+        jobCount
       }
     }
     jobs {
@@ -64,6 +70,11 @@ export default function DashboardPage() {
   }, [intervalMs, reexecuteQuery])
 
   const stats = data?.me?.stats
+  const subscription = data?.me.subscription
+  const atJobLimit =
+    subscription?.tier === "free" &&
+    subscription.jobLimit != null &&
+    subscription.jobCount >= subscription.jobLimit
   const successPct =
     stats != null ? `${(stats.successRateLast24h * 100).toFixed(1)}%` : "—"
   const avgDuration =
@@ -90,6 +101,24 @@ export default function DashboardPage() {
         <p className="text-zinc-500">Loading…</p>
       ) : (
         <>
+          {atJobLimit && (
+            <div className="mb-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-900/20">
+              <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-300">
+                <Zap size={15} />
+                <span>
+                  You've reached the free plan limit of {subscription?.jobLimit}{" "}
+                  job.
+                </span>
+              </div>
+              <Link
+                href="/billing"
+                className="text-sm font-medium text-amber-800 underline hover:no-underline dark:text-amber-300"
+              >
+                Upgrade to Pro
+              </Link>
+            </div>
+          )}
+
           <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatsCard label="Total jobs" value={stats?.totalJobs ?? 0} />
             <StatsCard label="Active jobs" value={stats?.activeJobs ?? 0} />

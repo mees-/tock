@@ -18,10 +18,10 @@ export function createServer() {
 
   const server = createHttpServer(yoga)
 
-  server.listen(env.PORT, () => {
+  server.listen(env.GRAPHQL_API_PORT, () => {
     logger.info(
-      { port: env.PORT },
-      `GraphQL API running on http://0.0.0.0:${env.PORT}/graphql`,
+      { port: env.GRAPHQL_API_PORT },
+      `GraphQL API running on http://0.0.0.0:${env.GRAPHQL_API_PORT}/graphql`,
     )
   })
 }

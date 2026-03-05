@@ -3,10 +3,14 @@ import { boolean, integer, jsonb, pgTable, serial, text, timestamp, varchar } fr
 export const USER_ROLES = ["admin", "member"] as const
 export const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const
 export const JOB_RUN_STATUSES = ["success", "failure", "timeout"] as const
+export const SUBSCRIPTION_STATUSES = ["active", "canceled", "past_due", "incomplete"] as const
+export const SUBSCRIPTION_TIERS = ["free", "pro"] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
 export type HttpMethod = (typeof HTTP_METHODS)[number]
 export type JobRunStatus = (typeof JOB_RUN_STATUSES)[number]
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
+export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number]
 
 export const users = pgTable("users", {
   id: serial().primaryKey(),
@@ -14,6 +18,9 @@ export const users = pgTable("users", {
   passwordHash: text().notNull(),
   role: text({ enum: USER_ROLES }).notNull().default("member"),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  stripeCustomerId: text().unique(),
+  subscriptionStatus: text({ enum: SUBSCRIPTION_STATUSES }),
+  subscriptionTier: text({ enum: SUBSCRIPTION_TIERS }).notNull().default("free"),
 })
 
 export const jobs = pgTable("jobs", {

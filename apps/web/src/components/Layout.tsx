@@ -28,6 +28,12 @@ export default function Layout({ children }: PropsWithChildren) {
           </Link>
 
           <div className="flex flex-row items-center gap-2">
+            <Link
+              href="/billing"
+              className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+            >
+              Billing
+            </Link>
             <span className="p-0 m-0">{user?.username}</span>
             <button
               onClick={logout}

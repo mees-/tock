@@ -1,7 +1,7 @@
 import { Cron } from "croner"
-import { db, jobs, jobRuns } from "database"
+import { db, jobs, jobRuns, users } from "database"
 import type { DbJob, JobRunStatus } from "database"
-import { eq } from "drizzle-orm"
+import { eq, asc } from "drizzle-orm"
 import { logger } from "./logger"
 
 const MAX_RESPONSE_BODY_LENGTH = 10_000
@@ -39,8 +39,12 @@ async function executeJob(jobId: number) {
     durationMs = Date.now() - start
     const rawBody = await response.text()
     const truncated = rawBody.length > MAX_RESPONSE_BODY_LENGTH
-    responseBody = truncated ? rawBody.slice(0, MAX_RESPONSE_BODY_LENGTH) + "\n[truncated]" : rawBody
-    responseHeaders = JSON.stringify(Object.fromEntries(response.headers.entries()))
+    responseBody = truncated
+      ? rawBody.slice(0, MAX_RESPONSE_BODY_LENGTH) + "\n[truncated]"
+      : rawBody
+    responseHeaders = JSON.stringify(
+      Object.fromEntries(response.headers.entries()),
+    )
     httpStatusCode = response.status
     status = response.ok ? "success" : "failure"
 
@@ -61,7 +65,10 @@ async function executeJob(jobId: number) {
     const isTimeout = err instanceof DOMException && err.name === "TimeoutError"
     status = isTimeout ? "timeout" : "failure"
     errorMessage = err instanceof Error ? err.message : String(err)
-    logger.error({ jobId: job.id, name: job.name, err, isTimeout }, "Job failed")
+    logger.error(
+      { jobId: job.id, name: job.name, err, isTimeout },
+      "Job failed",
+    )
   }
 
   // Phase 2: record the run — if the job was deleted between sync cycles the
@@ -80,8 +87,15 @@ async function executeJob(jobId: number) {
     })
   } catch (err) {
     // Postgres FK violation (23503) means the job was deleted mid-flight.
-    if (err instanceof Error && "code" in err && (err as { code: string }).code === "23503") {
-      logger.debug({ jobId: job.id }, "Job deleted before run could be recorded, discarding")
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as { code: string }).code === "23503"
+    ) {
+      logger.debug(
+        { jobId: job.id },
+        "Job deleted before run could be recorded, discarding",
+      )
     } else {
       logger.error({ jobId: job.id, err }, "Failed to record job run")
     }
@@ -89,13 +103,37 @@ async function executeJob(jobId: number) {
 }
 
 function startJob(job: DbJob) {
-  const cron = new Cron(job.cronExpression, { timezone: job.timezone, protect: true }, () => executeJob(job.id))
+  const cron = new Cron(
+    job.cronExpression,
+    { timezone: job.timezone, protect: true },
+    () => executeJob(job.id),
+  )
   cronMap.set(job.id, { cron, updatedAt: job.updatedAt.toISOString() })
-  logger.debug({ jobId: job.id, name: job.name, cron: job.cronExpression }, "Cron started")
+  logger.debug(
+    { jobId: job.id, name: job.name, cron: job.cronExpression },
+    "Cron started",
+  )
 }
 
 export async function syncJobs() {
-  const activeJobs = await db.select().from(jobs).where(eq(jobs.isActive, true))
+  const rows = await db
+    .select({ job: jobs, subscriptionTier: users.subscriptionTier })
+    .from(jobs)
+    .innerJoin(users, eq(jobs.userId, users.id))
+    .where(eq(jobs.isActive, true))
+    .orderBy(asc(jobs.createdAt))
+
+  // Free-tier users may only run their single oldest active job
+  const seenFreeUsers = new Set<number>()
+  const activeJobs: DbJob[] = []
+  for (const { job, subscriptionTier } of rows) {
+    if (subscriptionTier === "pro") {
+      activeJobs.push(job)
+    } else if (!seenFreeUsers.has(job.userId)) {
+      seenFreeUsers.add(job.userId)
+      activeJobs.push(job)
+    }
+  }
 
   const activeIds = new Set(activeJobs.map(j => j.id))
 

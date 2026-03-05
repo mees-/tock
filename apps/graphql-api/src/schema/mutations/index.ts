@@ -2,18 +2,20 @@ import { builder } from "../builder"
 import { JobRef } from "../types/job"
 import { AuthPayloadRef } from "../types/user"
 import { jobs, users, type HttpMethod, type DbUser } from "database"
-import { eq, and, sql } from "drizzle-orm"
+import { eq, and, sql, count } from "drizzle-orm"
 import { signJWT, verifyJWT } from "auth"
 import { env } from "../../env"
 import {
   ValidationError,
   NotFoundError,
   AuthenticationError,
+  ForbiddenError,
 } from "../../errors"
 import { z } from "zod"
 import { canSignup } from "../queries"
 import { GraphQLError } from "graphql/error"
 import { DateTime } from "luxon"
+import { stripe } from "../../stripe"
 
 const SIGNUP_SCHEMA = z.object({
   username: z
@@ -173,6 +175,18 @@ builder.mutationField("createJob", t =>
     resolve: async (_root, { input }, ctx) => {
       const user = ctx.requireAuth()
 
+      if (user.subscriptionTier === "free") {
+        const [{ value: jobCount }] = await ctx.db
+          .select({ value: count() })
+          .from(jobs)
+          .where(eq(jobs.userId, user.id))
+        if (jobCount >= 1) {
+          throw new ForbiddenError(
+            "Job limit reached. Upgrade to Pro for unlimited jobs.",
+          )
+        }
+      }
+
       const [job] = await ctx.db
         .insert(jobs)
         .values({
@@ -267,6 +281,80 @@ builder.mutationField("toggleJob", t =>
 
       if (job == null) throw new NotFoundError("Job")
       return job
+    },
+  }),
+)
+
+// ─── Stripe mutations ─────────────────────────────────────────────────────────
+
+const KNOWN_PRICE_IDS = () =>
+  new Set([env.STRIPE_PRO_MONTHLY_PRICE_ID, env.STRIPE_PRO_YEARLY_PRICE_ID])
+
+const CheckoutSessionRef = builder
+  .objectRef<{ url: string }>("CheckoutSession")
+  .implement({ fields: t => ({ url: t.exposeString("url") }) })
+
+const BillingPortalSessionRef = builder
+  .objectRef<{ url: string }>("BillingPortalSession")
+  .implement({ fields: t => ({ url: t.exposeString("url") }) })
+
+builder.mutationField("createCheckoutSession", t =>
+  t.fieldWithInput({
+    type: CheckoutSessionRef,
+    nullable: false,
+    input: { priceId: t.input.string({ required: true }) },
+    resolve: async (_root, { input }, ctx) => {
+      const user = ctx.requireAuth()
+
+      if (!KNOWN_PRICE_IDS().has(input.priceId)) {
+        throw new ValidationError("Invalid price ID")
+      }
+
+      let customerId = user.stripeCustomerId
+      if (customerId == null) {
+        const customer = await stripe.customers.create({
+          metadata: { userId: String(user.id) },
+        })
+        customerId = customer.id
+        await ctx.db
+          .update(users)
+          .set({ stripeCustomerId: customerId })
+          .where(eq(users.id, user.id))
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: "subscription",
+        client_reference_id: String(user.id),
+        line_items: [{ price: input.priceId, quantity: 1 }],
+        success_url: `${env.WEB_URL}/billing?success=true`,
+        cancel_url: `${env.WEB_URL}/billing`,
+      })
+
+      if (session.url == null)
+        throw new ValidationError("Failed to create checkout session")
+      return { url: session.url }
+    },
+  }),
+)
+
+builder.mutationField("createBillingPortalSession", t =>
+  t.field({
+    type: BillingPortalSessionRef,
+    nullable: false,
+    resolve: async (_root, _args, ctx) => {
+      const user = ctx.requireAuth()
+
+      if (user.stripeCustomerId == null) {
+        throw new ValidationError("No billing account found")
+      }
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${env.WEB_URL}/billing`,
+      })
+
+      return { url: session.url }
     },
   }),
 )

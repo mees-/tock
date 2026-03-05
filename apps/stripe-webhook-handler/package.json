@@ -1,0 +1,22 @@
+{
+  "name": "stripe-webhook-handler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "trap 'kill 0' INT TERM; bun --watch src/index.ts & stripe listen --forward-to localhost:4001/stripe/webhook; wait",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "database": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "hono": "^4.12.3",
+    "stripe": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
