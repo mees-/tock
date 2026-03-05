@@ -142,6 +142,49 @@ builder.mutationField("register", t =>
   }),
 )
 
+builder.mutationField("changePassword", t =>
+  t.fieldWithInput({
+    type: "Boolean",
+    nullable: false,
+    input: {
+      currentPassword: t.input.string({ required: true }),
+      newPassword: t.input.string({ required: true }),
+    },
+    resolve: async (_root, { input }, ctx) => {
+      const auth = ctx.requireAuth()
+
+      const parsed = SIGNUP_SCHEMA.shape.password.safeParse(input.newPassword)
+      if (!parsed.success) {
+        throw new ValidationError(
+          parsed.error.issues[0]?.message ?? "Invalid password",
+        )
+      }
+
+      const [user] = await ctx.db
+        .select()
+        .from(users)
+        .where(eq(users.id, auth.id))
+        .limit(1)
+
+      if (user == null) throw new AuthenticationError("User not found")
+
+      const valid = await Bun.password.verify(
+        input.currentPassword,
+        user.passwordHash,
+      )
+      if (!valid) throw new AuthenticationError("Incorrect current password")
+
+      const passwordHash = await Bun.password.hash(input.newPassword)
+      await ctx.db
+        .update(users)
+        .set({ passwordHash })
+        .where(eq(users.id, auth.id))
+
+      return true
+    },
+  }),
+)
+
 // ─── Job mutations ────────────────────────────────────────────────────────────
 
 type MutationFieldBuilder = Parameters<
@@ -327,8 +370,8 @@ builder.mutationField("createCheckoutSession", t =>
         mode: "subscription",
         client_reference_id: String(user.id),
         line_items: [{ price: input.priceId, quantity: 1 }],
-        success_url: `${env.WEB_URL}/billing?success=true`,
-        cancel_url: `${env.WEB_URL}/billing`,
+        success_url: `${env.WEB_URL}/settings/billing?success=true`,
+        cancel_url: `${env.WEB_URL}/settings/billing`,
       })
 
       if (session.url == null)
@@ -351,7 +394,7 @@ builder.mutationField("createBillingPortalSession", t =>
 
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
-        return_url: `${env.WEB_URL}/billing`,
+        return_url: `${env.WEB_URL}/settings/billing`,
       })
 
       return { url: session.url }

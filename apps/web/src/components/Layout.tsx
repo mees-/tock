@@ -1,5 +1,5 @@
 import { Link } from "wouter"
-import { Clock, LogOut } from "lucide-react"
+import { Clock, LogOut, CircleUserRound } from "lucide-react"
 import { useAuthStore } from "@/lib/auth/auth-store"
 import { PropsWithChildren } from "react"
 import { usePostHog } from "posthog-js/react"
@@ -29,12 +29,12 @@ export default function Layout({ children }: PropsWithChildren) {
 
           <div className="flex flex-row items-center gap-2">
             <Link
-              href="/billing"
-              className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+              href="/settings/user"
+              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
             >
-              Billing
+              <CircleUserRound size={15} />
+              {user?.username}
             </Link>
-            <span className="p-0 m-0">{user?.username}</span>
             <button
               onClick={logout}
               className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"

@@ -7,7 +7,8 @@ import DashboardPage from "@/pages/DashboardPage"
 import NewJobPage from "@/pages/NewJobPage"
 import JobDetailPage from "@/pages/JobDetailPage"
 import MarketingPage from "@/pages/MarketingPage"
-import BillingPage from "@/pages/BillingPage"
+import UserSettingsPage from "@/pages/settings/UserSettingsPage"
+import SettingsBillingPage from "@/pages/settings/BillingPage"
 import { useCanSignup } from "./lib/auth/canSignupHook"
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -35,7 +36,11 @@ export default function App() {
               <Route path="/dashboard" component={DashboardPage} />
               <Route path="/jobs/new" component={NewJobPage} />
               <Route path="/jobs/:id" component={JobDetailPage} />
-              <Route path="/billing" component={BillingPage} />
+              <Route path="/settings/user" component={UserSettingsPage} />
+              <Route path="/settings/billing" component={SettingsBillingPage} />
+              <Route path="/settings">
+                <Redirect to="/settings/user" />
+              </Route>
             </Switch>
           </Layout>
         </AuthGate>

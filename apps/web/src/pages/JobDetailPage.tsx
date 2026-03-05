@@ -91,7 +91,7 @@ export default function JobDetailPage() {
     if (result.error == null) {
       posthog.capture("job_deleted", { job_id: id })
     }
-    navigate("/jobs")
+    navigate("/dashboard")
   }
 
   return (

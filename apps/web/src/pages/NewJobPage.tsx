@@ -40,7 +40,13 @@ function describeCron(expr: string): string | null {
   }
 }
 
-function HeadersEditor({ headers, onChange }: { headers: Header[]; onChange: (headers: Header[]) => void }) {
+function HeadersEditor({
+  headers,
+  onChange,
+}: {
+  headers: Header[]
+  onChange: (headers: Header[]) => void
+}) {
   function addRow() {
     onChange([...headers, { key: "", value: "" }])
   }
@@ -50,7 +56,9 @@ function HeadersEditor({ headers, onChange }: { headers: Header[]; onChange: (he
   }
 
   function updateRow(index: number, field: "key" | "value", value: string) {
-    onChange(headers.map((h, i) => (i === index ? { ...h, [field]: value } : h)))
+    onChange(
+      headers.map((h, i) => (i === index ? { ...h, [field]: value } : h)),
+    )
   }
 
   return (
@@ -88,14 +96,21 @@ function HeadersEditor({ headers, onChange }: { headers: Header[]; onChange: (he
                 className="shrink-0 rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-red-600 dark:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-red-400"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path
+                    d="M2 2l10 10M12 2L2 12"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </button>
             </div>
           ))}
         </div>
       ) : (
-        <p className="mb-2 text-xs text-zinc-400 dark:text-zinc-600">No headers configured.</p>
+        <p className="mb-2 text-xs text-zinc-400 dark:text-zinc-600">
+          No headers configured.
+        </p>
       )}
 
       <button
@@ -104,7 +119,12 @@ function HeadersEditor({ headers, onChange }: { headers: Header[]; onChange: (he
         className="flex items-center gap-1.5 text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path
+            d="M6 1v10M1 6h10"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
         </svg>
         Add header
       </button>
@@ -181,7 +201,10 @@ export default function NewJobPage() {
     return nextRunDate.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)
   }, [nextRunDate])
 
-  function update<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
+  function update<K extends keyof typeof form>(
+    field: K,
+    value: (typeof form)[K],
+  ) {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
@@ -191,7 +214,9 @@ export default function NewJobPage() {
     setLoading(true)
 
     const headersObj = Object.fromEntries(
-      form.headers.filter(h => h.key.trim() !== "").map(h => [h.key.trim(), h.value]),
+      form.headers
+        .filter(h => h.key.trim() !== "")
+        .map(h => [h.key.trim(), h.value]),
     )
 
     const result = await createJob({
@@ -222,14 +247,16 @@ export default function NewJobPage() {
     })
 
     const id = result.data?.createJob.id
-    navigate(id != null ? `/jobs/${id}` : "/jobs")
+    navigate(id != null ? `/jobs/${id}` : "/dashboard")
   }
 
   const cronDescription = describeCron(expressionNormalized)
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white">New job</h1>
+      <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white">
+        New job
+      </h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error != null && (
@@ -259,7 +286,11 @@ export default function NewJobPage() {
 
         <div className="flex gap-3">
           <Field label="Method" className="w-36">
-            <select value={form.method} onChange={e => update("method", e.target.value)} className={inputCls}>
+            <select
+              value={form.method}
+              onChange={e => update("method", e.target.value)}
+              className={inputCls}
+            >
               {HTTP_METHODS.map(m => (
                 <option key={m} value={m}>
                   {m}
@@ -297,22 +328,31 @@ export default function NewJobPage() {
               <>
                 {cronDescription}
                 <br />
-                {nextRunDateFormatted != null && cronTouched ? ` Next at: ${nextRunDateFormatted}` : ""}
+                {nextRunDateFormatted != null && cronTouched
+                  ? ` Next at: ${nextRunDateFormatted}`
+                  : ""}
               </>
             ) : (
-              <span className="text-red-500 dark:text-red-400">Invalid cron expression</span>
+              <span className="text-red-500 dark:text-red-400">
+                Invalid cron expression
+              </span>
             )}
           </p>
         </Field>
 
         <Field label="Headers" optional>
-          <HeadersEditor headers={form.headers} onChange={v => update("headers", v)} />
+          <HeadersEditor
+            headers={form.headers}
+            onChange={v => update("headers", v)}
+          />
         </Field>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-zinc-600 dark:text-zinc-400">
             Request body
-            <span className="ml-1 text-xs text-zinc-400 dark:text-zinc-600">(optional)</span>
+            <span className="ml-1 text-xs text-zinc-400 dark:text-zinc-600">
+              (optional)
+            </span>
           </label>
           {showBody ? (
             <div className="space-y-2">
@@ -332,7 +372,12 @@ export default function NewJobPage() {
                 className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path
+                    d="M2 2l8 8M10 2L2 10"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 Remove body
               </button>
@@ -344,7 +389,12 @@ export default function NewJobPage() {
               className="flex items-center gap-1.5 text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <path
+                  d="M6 1v10M1 6h10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
               </svg>
               Add body
             </button>
@@ -361,7 +411,7 @@ export default function NewJobPage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/jobs")}
+            onClick={() => navigate("/dashboard")}
             className="rounded-lg border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:text-white"
           >
             Cancel
@@ -392,7 +442,11 @@ function Field({
     <div className={className}>
       <label className="mb-1.5 block text-sm font-medium text-zinc-600 dark:text-zinc-400">
         {label}
-        {optional === true && <span className="ml-1 text-xs text-zinc-400 dark:text-zinc-600">(optional)</span>}
+        {optional === true && (
+          <span className="ml-1 text-xs text-zinc-400 dark:text-zinc-600">
+            (optional)
+          </span>
+        )}
       </label>
       {children}
     </div>

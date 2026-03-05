@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
 import ErrorState from "@/components/ErrorState"
+import SettingsLayout from "@/components/SettingsLayout"
 
 const BillingQuery = graphql(`
   query Billing {
@@ -64,13 +65,7 @@ export default function BillingPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-          Billing
-        </h1>
-      </div>
-
+    <SettingsLayout>
       {error != null && data == null ? (
         <ErrorState title="Failed to load billing" message={error.message} />
       ) : fetching && data == null ? (
@@ -123,9 +118,7 @@ export default function BillingPage() {
                 ${((prices?.monthly.amount ?? 100) / 100).toFixed(0)}
                 <span className="text-base font-normal text-zinc-500">/mo</span>
               </p>
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                Unlimited cron jobs
-              </p>
+              <ProPlanFeatures />
               <button
                 onClick={() => subscribe(prices?.monthly.id ?? "")}
                 disabled={prices == null}
@@ -148,9 +141,7 @@ export default function BillingPage() {
                 ${((prices?.yearly.amount ?? 1000) / 100).toFixed(0)}
                 <span className="text-base font-normal text-zinc-500">/yr</span>
               </p>
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                Unlimited cron jobs
-              </p>
+              <ProPlanFeatures />
               <button
                 onClick={() => subscribe(prices?.yearly.id ?? "")}
                 disabled={prices == null}
@@ -162,6 +153,13 @@ export default function BillingPage() {
           </div>
         </div>
       )}
-    </div>
+    </SettingsLayout>
   )
 }
+
+const ProPlanFeatures = () => (
+  <ul className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 list-disc list-inside">
+    <li>Unlimited cron jobs</li>
+    <li>I'll fix bugs (if you find them)</li>
+  </ul>
+)

@@ -88,13 +88,24 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
           Dashboard
         </h1>
-        <Link
-          href="/jobs/new"
-          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors"
-        >
-          <Plus size={16} />
-          New job
-        </Link>
+        {atJobLimit ? (
+          <button
+            disabled
+            title="Upgrade to Pro to add more jobs"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white opacity-40 cursor-not-allowed"
+          >
+            <Plus size={16} />
+            New job
+          </button>
+        ) : (
+          <Link
+            href="/jobs/new"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors"
+          >
+            <Plus size={16} />
+            New job
+          </Link>
+        )}
       </div>
 
       {fetching && data == null ? (

@@ -17,7 +17,11 @@ export async function handleStripeWebhook(c: Context) {
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, sig, env.STRIPE_WEBHOOK_SECRET)
+    event = await stripe.webhooks.constructEventAsync(
+      body,
+      sig,
+      env.STRIPE_WEBHOOK_SECRET,
+    )
   } catch (err) {
     console.log("Stripe construct error", err)
     return c.text(`Webhook signature verification failed: ${err}`, 400)
