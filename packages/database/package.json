@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "pnpm run studio",
     "typecheck": "tsc --noEmit",
-    "dev-push": "drizzle-kit push",
+    "push-dev": "drizzle-kit push",
     "generate-migration": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio"

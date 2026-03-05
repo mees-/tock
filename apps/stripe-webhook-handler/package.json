@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "trap 'kill 0' INT TERM; bun --watch src/index.ts & stripe listen --forward-to localhost:4001/stripe/webhook; wait",
+    "dev": "bun --watch src/index.ts",
+    "dev:stripe-webhook-forward": "stripe listen --forward-to localhost:4001/stripe/webhook",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit"
   },

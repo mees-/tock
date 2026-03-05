@@ -5,3 +5,4 @@ dist/
 *.local
 schema.graphql
 src/lib/graphql/graphql-env.d.ts
+.worktrees/

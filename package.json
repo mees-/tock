@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "setup-services": "docker-compose up -d",
-    "dev:setup": "pnpm run setup-services && pnpm run -F database dev-push",
-    "dev": "pnpm run dev:setup && pnpm -F graphql-api generate-schema && (trap 'kill 0' INT TERM; pnpm -r --parallel dev & pnpm -F graphql-api generate-schema:watch; wait)",
+    "setup-db": "pnpm run -F database push-dev",
+    "setup-graphql-codegen": "pnpm -F graphql-api generate-schema",
+    "dev": "pnpm run setup-services && pnpm run setup-db && pnpm run setup-graphql-codegen && pnpm -r --parallel '/^dev:?.*/'",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r --parallel typecheck"
   },
