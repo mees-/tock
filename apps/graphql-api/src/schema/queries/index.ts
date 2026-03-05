@@ -18,10 +18,11 @@ builder.queryField("me", t =>
 )
 
 export async function canSignup(database: typeof db) {
-  if (env.ALLOW_SIGNUP) {
+  if (!env.COMMUNITY_EDITION) {
+    // cloud mode: open registration
     return true
   }
-
+  // community edition: only allow the first user
   const count = await database.$count(users)
   return count === 0
 }

@@ -15,7 +15,7 @@ import { z } from "zod"
 import { canSignup } from "../queries"
 import { GraphQLError } from "graphql/error"
 import { DateTime } from "luxon"
-import { stripe } from "../../stripe"
+import { getStripe } from "../../stripe"
 
 const SIGNUP_SCHEMA = z.object({
   username: z
@@ -331,7 +331,7 @@ builder.mutationField("toggleJob", t =>
 // ─── Stripe mutations ─────────────────────────────────────────────────────────
 
 const KNOWN_PRICE_IDS = () =>
-  new Set([env.STRIPE_PRO_MONTHLY_PRICE_ID, env.STRIPE_PRO_YEARLY_PRICE_ID])
+  new Set([env.STRIPE_PRO_MONTHLY_PRICE_ID!, env.STRIPE_PRO_YEARLY_PRICE_ID!])
 
 const CheckoutSessionRef = builder
   .objectRef<{ url: string }>("CheckoutSession")
@@ -355,7 +355,7 @@ builder.mutationField("createCheckoutSession", t =>
 
       let customerId = user.stripeCustomerId
       if (customerId == null) {
-        const customer = await stripe.customers.create({
+        const customer = await getStripe().customers.create({
           metadata: { userId: String(user.id) },
         })
         customerId = customer.id
@@ -365,7 +365,7 @@ builder.mutationField("createCheckoutSession", t =>
           .where(eq(users.id, user.id))
       }
 
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         customer: customerId,
         mode: "subscription",
         client_reference_id: String(user.id),
@@ -392,7 +392,7 @@ builder.mutationField("createBillingPortalSession", t =>
         throw new ValidationError("No billing account found")
       }
 
-      const session = await stripe.billingPortal.sessions.create({
+      const session = await getStripe().billingPortal.sessions.create({
         customer: user.stripeCustomerId,
         return_url: `${env.WEB_URL}/settings/billing`,
       })
