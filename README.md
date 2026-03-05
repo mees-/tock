@@ -89,7 +89,7 @@ account.
 | ----------------------- | ---------- | ------------------------------------------------- |
 | `DATABASE_URL`          | —          | **Required.** Postgres connection URL             |
 | `JWT_SECRET`            | —          | **Required.** Secret for signing JWTs (32+ chars) |
-| `ALLOW_SIGNUP`          | `false`    | Allow open registration                           |
+| `COMMUNITY_EDITION`     | `false`    | `true` = single-user mode, no billing; `false` = open registration + Stripe billing |
 | `PORT`                  | `4000`     | GraphQL API port                                  |
 | `VITE_GRAPHQL_ENDPOINT` | `/graphql` | GraphQL endpoint for the web app                  |
 | `SYNC_INTERVAL_MS`      | `30000`    | Cron runner DB sync interval                      |

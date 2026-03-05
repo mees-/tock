@@ -1,5 +1,5 @@
 import { builder } from "../builder"
-import { stripe } from "../../stripe"
+import { getStripe } from "../../stripe"
 import { env } from "../../env"
 
 export const FREE_JOB_LIMIT = 1
@@ -45,8 +45,8 @@ export const PricingRef = builder
         type: PricingPriceRef,
         nullable: false,
         resolve: async () => {
-          const price = await stripe.prices.retrieve(
-            env.STRIPE_PRO_MONTHLY_PRICE_ID,
+          const price = await getStripe().prices.retrieve(
+            env.STRIPE_PRO_MONTHLY_PRICE_ID!,
           )
           return {
             id: price.id,
@@ -59,8 +59,8 @@ export const PricingRef = builder
         type: PricingPriceRef,
         nullable: false,
         resolve: async () => {
-          const price = await stripe.prices.retrieve(
-            env.STRIPE_PRO_YEARLY_PRICE_ID,
+          const price = await getStripe().prices.retrieve(
+            env.STRIPE_PRO_YEARLY_PRICE_ID!,
           )
           return {
             id: price.id,
