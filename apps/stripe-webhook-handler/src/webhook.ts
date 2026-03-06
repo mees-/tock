@@ -1,10 +1,9 @@
 import { db, users } from "database"
 import { eq } from "drizzle-orm"
 import type { Context } from "hono"
-import Stripe from "stripe"
+import { stripe } from "./stripe"
 import { env } from "./env"
-
-const stripe = new Stripe(env.STRIPE_SECRET_KEY)
+import Stripe from "stripe"
 
 export async function handleStripeWebhook(c: Context) {
   const body = await c.req.text()
