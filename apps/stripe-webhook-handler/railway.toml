@@ -1,6 +1,7 @@
 [build]
 builder = "RAILPACK"
 watchPatterns = ["apps/stripe-webhook-handler/**"]
+buildCommand = "echo NO_BUILD"
 
 [deploy]
 startCommand = "bun apps/stripe-webhook-handler/src/index.ts"
