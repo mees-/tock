@@ -14,6 +14,21 @@ import { useEffect } from "react"
 import { useCanSignup } from "@/lib/auth/canSignupHook"
 import { DateTime } from "luxon"
 import { useMediaQuery } from "usehooks-ts"
+import { useQuery } from "urql"
+import { graphql } from "@/lib/graphql/graphql"
+
+const SubscriptionPricesQuery = graphql(`
+  query SubscriptionPrices {
+    subscriptionPrices {
+      monthly {
+        amount
+      }
+      yearly {
+        amount
+      }
+    }
+  }
+`)
 
 const GITHUB_URL = "https://github.com/mees-/tock"
 
@@ -52,6 +67,7 @@ export default function MarketingPage() {
   const canSignup = useCanSignup()
   const [, navigate] = useLocation()
   const isMobile = useMediaQuery("(max-width: 768px)")
+  const [{ data: pricesData }] = useQuery({ query: SubscriptionPricesQuery })
   useEffect(() => {
     if (!canSignup) {
       navigate("/login")
@@ -342,6 +358,103 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      {pricesData?.subscriptionPrices != null && (
+        <section className="bg-white px-6 py-24">
+          <div className="mx-auto max-w-4xl">
+            <div className="mb-14 text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-zinc-900 md:text-4xl">
+                Simple pricing
+              </h2>
+              <p className="mt-3 text-zinc-500">
+                Start free. Upgrade when you need more.
+              </p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-3">
+              {/* Self-hosted */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 p-7">
+                <p className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+                  Self-hosted
+                </p>
+                <p className="mt-3 text-4xl font-extrabold text-zinc-900">
+                  Free
+                </p>
+                <p className="mt-1 text-sm text-zinc-400">open source, MIT</p>
+                <ul className="mt-6 flex-1 space-y-2.5 text-sm text-zinc-600">
+                  <PricingFeature label="Unlimited cron jobs" />
+                  <PricingFeature label="Full run history" />
+                  <PricingFeature label="Your infrastructure" />
+                </ul>
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-8 flex items-center justify-center gap-2 rounded-lg border border-zinc-200 py-2.5 text-center text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:text-zinc-900"
+                >
+                  <Github size={14} />
+                  View on GitHub
+                </a>
+              </div>
+
+              {/* Pro Monthly */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 p-7">
+                <p className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+                  Pro
+                </p>
+                <p className="mt-3 text-4xl font-extrabold text-zinc-900">
+                  $
+                  {(pricesData.subscriptionPrices.monthly.amount / 100).toFixed(
+                    0,
+                  )}
+                  <span className="text-lg font-normal text-zinc-400">/mo</span>
+                </p>
+                <p className="mt-1 text-sm text-zinc-400">billed monthly</p>
+                <ul className="mt-6 flex-1 space-y-2.5 text-sm text-zinc-600">
+                  <PricingFeature label="Unlimited cron jobs" />
+                  <PricingFeature label="Full run history" />
+                </ul>
+                <Link
+                  href="/login"
+                  className="mt-8 block rounded-lg bg-emerald-600 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+                >
+                  Get started
+                </Link>
+              </div>
+
+              {/* Pro Yearly */}
+              <div className="flex flex-col rounded-xl border border-emerald-500 p-7">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+                    Pro
+                  </p>
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                    Save 17%
+                  </span>
+                </div>
+                <p className="mt-3 text-4xl font-extrabold text-zinc-900">
+                  $
+                  {(pricesData.subscriptionPrices.yearly.amount / 100).toFixed(
+                    0,
+                  )}
+                  <span className="text-lg font-normal text-zinc-400">/yr</span>
+                </p>
+                <p className="mt-1 text-sm text-zinc-400">billed yearly</p>
+                <ul className="mt-6 flex-1 space-y-2.5 text-sm text-zinc-600">
+                  <PricingFeature label="Unlimited cron jobs" />
+                  <PricingFeature label="Full run history" />
+                </ul>
+                <Link
+                  href="/login"
+                  className="mt-8 block rounded-lg bg-emerald-600 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+                >
+                  Get started
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* CTA strip */}
       <section className="bg-gradient-to-r from-emerald-700 to-emerald-600 px-6 py-20 text-center">
         <h2 className="mb-3 text-3xl font-bold text-white md:text-4xl">
@@ -378,6 +491,15 @@ export default function MarketingPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+function PricingFeature({ label }: { label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <Check size={14} className="shrink-0 text-emerald-600" />
+      {label}
+    </li>
   )
 }
 

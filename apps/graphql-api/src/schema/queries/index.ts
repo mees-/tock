@@ -69,7 +69,7 @@ builder.queryField("job", t =>
 builder.queryField("subscriptionPrices", t =>
   t.field({
     type: PricingRef,
-    nullable: false,
+    nullable: true,
     resolve: () => ({}), // resolve sub-fields independently
   }),
 )
