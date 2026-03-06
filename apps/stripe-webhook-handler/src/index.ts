@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { env } from "./env"
-import { serve } from "@hono/node-server"
+import type { Serve } from "bun"
 import { handleStripeWebhook } from "./webhook"
 import { db } from "database"
 import { sql } from "drizzle-orm"
@@ -13,19 +13,16 @@ app.get("/health", async ctx => {
   try {
     await db.execute(sql`SELECT 1`)
     await stripe.accounts.list()
-    return ctx.status(200)
+    ctx.status(200)
+    return ctx.body("OK")
   } catch {
-    return ctx.status(200)
+    ctx.status(500)
+    return ctx.body("ERROR")
   }
 })
 
-serve({
+export default {
   fetch: app.fetch,
   hostname: "0.0.0.0",
   port: env.PORT ?? env.STRIPE_WEBHOOK_HANDLER_PORT,
-})
-
-console.log(
-  { port: env.PORT ?? env.STRIPE_WEBHOOK_HANDLER_PORT },
-  `GraphQL API running on http://0.0.0.0:${env.PORT ?? env.STRIPE_WEBHOOK_HANDLER_PORT}/graphql`,
-)
+} satisfies Serve.Options<undefined>
