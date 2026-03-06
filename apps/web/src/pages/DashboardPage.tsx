@@ -122,7 +122,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <Link
-                href="/billing"
+                href="/settings/billing"
                 className="text-sm font-medium text-amber-800 underline hover:no-underline dark:text-amber-300"
               >
                 Upgrade to Pro
