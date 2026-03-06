@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { env } from "./env"
+import type { Serve } from "bun"
 import { handleStripeWebhook } from "./webhook"
 import { db } from "database"
 import { sql } from "drizzle-orm"
@@ -21,4 +22,5 @@ app.get("/health", async ctx => {
 export default {
   port: env.PORT ?? env.STRIPE_WEBHOOK_HANDLER_PORT,
   fetch: app.fetch,
-}
+  hostname: "0.0.0.0",
+} satisfies Serve.Options<undefined>
