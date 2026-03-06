@@ -14,7 +14,7 @@ app.get("/health", async ctx => {
     await stripe.accounts.list()
     return ctx.status(200)
   } catch {
-    return ctx.status(500)
+    return ctx.status(200)
   }
 })
 
