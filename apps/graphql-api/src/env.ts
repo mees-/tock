@@ -3,6 +3,7 @@ import { z } from "zod"
 const envSchema = z
   .object({
     GRAPHQL_API_PORT: z.coerce.number().default(4000),
+    PORT: z.coerce.number().optional(),
     JWT_SECRET: z.string().min(32),
     COMMUNITY_EDITION: z
       .string()

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "gql-tada": "gql-tada generate-output",
-    "start": "serve -s dist"
+    "start": "serve -s dist -p $PORT"
   },
   "dependencies": {
     "@posthog/react": "^1.8.1",

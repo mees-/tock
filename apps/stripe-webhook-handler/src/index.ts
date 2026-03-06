@@ -19,6 +19,6 @@ app.get("/health", async ctx => {
 })
 
 export default {
-  port: env.STRIPE_WEBHOOK_HANDLER_PORT,
+  port: env.PORT ?? env.STRIPE_WEBHOOK_HANDLER_PORT,
   fetch: app.fetch,
 }
