@@ -1,16 +1,12 @@
-import { useEffect, useMemo, useReducer, useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useLocation } from "wouter"
 import { useQuery, useMutation } from "urql"
 import { Trash2, Play, Pause, Pencil, X } from "lucide-react"
 import { graphql } from "@/lib/graphql/graphql"
 import { smallestCronIntervalMs } from "@/lib/cronInterval"
-import { parseJson } from "@/lib/parseJson"
 import RunsTable from "@/components/RunsTable"
 import { usePostHog } from "posthog-js/react"
 import cronstrue from "cronstrue"
-import { Cron } from "croner"
-import { DateTime } from "luxon"
-import { inputCls } from "@/lib/styles"
 
 type Header = { key: string; value: string }
 
@@ -26,8 +22,28 @@ type EditForm = {
   showBody: boolean
 }
 
-// inputCls includes w-full; strip it for elements that need explicit widths
-const selectCls = inputCls.replace("w-full ", "")
+const termInputCls =
+  "bg-transparent border-none outline-none font-mono text-sm caret-emerald-400 selection:bg-emerald-900/40 w-full"
+
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+
+function isValidUrl(s: string) {
+  try {
+    new URL(s)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function isValidCron(s: string) {
+  try {
+    cronstrue.toString(s.trim())
+    return true
+  } catch {
+    return false
+  }
+}
 
 const JobDetailQuery = graphql(`
   query JobDetail($id: Int!) {
@@ -237,10 +253,8 @@ export default function JobDetailPage() {
       {/* Config */}
       <div className="mb-8 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow-lg">
         {/* Title bar */}
-        <div className="flex items-center gap-1.5 border-b border-zinc-800 px-4 py-3">
-          <div className="h-3 w-3 rounded-full bg-red-500/80" />
-          <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
-          <div className="h-3 w-3 rounded-full bg-emerald-500/80" />
+        <div className="flex items-center gap-2.5 border-b border-zinc-800 px-4 py-3">
+          {/*SOME ICON HERE*/}
           <span className="ml-2 flex-1 text-xs text-zinc-500">
             tock — job config
           </span>
@@ -262,85 +276,93 @@ export default function JobDetailPage() {
         </div>
 
         {editing && form != null ? (
-          <div className="flex flex-col gap-4 p-6 text-sm">
-            <div className="flex gap-6">
-              <ConfigRow label="Name" className="flex-1">
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={e => updateForm("name", e.target.value)}
-                  required
-                  className={inputCls}
-                />
-              </ConfigRow>
-              <ConfigRow label="Description" className="flex-1">
-                <input
-                  type="text"
-                  value={form.description}
-                  onChange={e => updateForm("description", e.target.value)}
-                  className={inputCls}
-                />
-              </ConfigRow>
+          <div className="px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
+            {/* name */}
+            <div className="flex items-baseline gap-2">
+              <span className="shrink-0 text-zinc-500">name:</span>
+              <input
+                type="text"
+                value={form.name}
+                onChange={e => updateForm("name", e.target.value)}
+                className={`${termInputCls} text-white ${!form.name.trim() ? "underline decoration-wavy decoration-red-500" : ""}`}
+              />
             </div>
-            <ConfigRow label="Method & Endpoint">
-              <div className="flex min-w-0 gap-2">
-                <select
-                  value={form.method}
-                  onChange={e => updateForm("method", e.target.value)}
-                  className={`w-28 shrink-0 ${selectCls}`}
-                >
-                  {["GET", "POST", "PUT", "PATCH", "DELETE"].map(m => (
-                    <option key={m}>{m}</option>
-                  ))}
-                </select>
-                <input
-                  type="url"
-                  value={form.endpoint}
-                  onChange={e => updateForm("endpoint", e.target.value)}
-                  required
-                  placeholder="https://example.com/webhook"
-                  className={`min-w-0 flex-1 ${inputCls}`}
-                />
-              </div>
-            </ConfigRow>
-            <div className="flex gap-6">
-              <ConfigRow label="Schedule" className="flex-1">
-                <input
-                  type="text"
-                  value={form.cronExpression}
-                  onChange={e => updateForm("cronExpression", e.target.value)}
-                  className={`${inputCls} font-mono`}
-                />
-                <CronDescription expr={form.cronExpression} />
-              </ConfigRow>
-              <ConfigRow label="Timezone" className="w-40 shrink-0">
-                <input
-                  type="text"
-                  value={form.timezone}
-                  onChange={e => updateForm("timezone", e.target.value)}
-                  placeholder="UTC"
-                  className={inputCls}
-                />
-              </ConfigRow>
+            {/* desc */}
+            <div className="flex items-baseline gap-2">
+              <span className="shrink-0 text-zinc-500">desc:</span>
+              <input
+                type="text"
+                value={form.description}
+                onChange={e => updateForm("description", e.target.value)}
+                className={`${termInputCls} text-zinc-400`}
+              />
             </div>
-            <ConfigRow label="Headers">
+            {/* method */}
+            <div className="flex items-baseline gap-2">
+              <span className="shrink-0 text-zinc-500">method:</span>
+              <input
+                type="text"
+                list="http-methods"
+                value={form.method}
+                onChange={e =>
+                  updateForm("method", e.target.value.toUpperCase())
+                }
+                className={`${termInputCls} ${methodColor(form.method)} w-28`}
+              />
+              <datalist id="http-methods">
+                {METHODS.map(m => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            </div>
+            {/* endpoint */}
+            <div className="flex items-baseline gap-2">
+              <span className="shrink-0 text-zinc-500">endpoint: </span>
+              <input
+                type="text"
+                value={form.endpoint}
+                onChange={e => updateForm("endpoint", e.target.value)}
+                className={`${termInputCls} text-blue-400 ${!isValidUrl(form.endpoint) ? "underline decoration-wavy decoration-red-500" : ""}`}
+              />
+            </div>
+            {/* schedule */}
+            <div className="flex items-baseline gap-2">
+              <span className="shrink-0 text-zinc-500">schedule: </span>
+              <input
+                type="text"
+                value={form.cronExpression}
+                onChange={e => updateForm("cronExpression", e.target.value)}
+                style={{
+                  width: `${Math.max(form.cronExpression.length, 1)}ch`,
+                }}
+                className={`${termInputCls} text-white w-auto ${!isValidCron(form.cronExpression) ? "underline decoration-wavy decoration-red-500" : ""}`}
+              />
+              <CronComment expr={form.cronExpression} />
+            </div>
+
+            {/* Headers sub-card */}
+            <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-4">
+              <p className="text-xs text-zinc-600 font-mono mb-2"># headers</p>
               <HeadersEditor
                 headers={form.headers}
                 onChange={v => updateForm("headers", v)}
               />
-            </ConfigRow>
+            </div>
+
+            {/* Body sub-card or add link */}
             <BodyField
               value={form.body}
               show={form.showBody}
               onShow={v => updateForm("showBody", v)}
               onChange={v => updateForm("body", v)}
             />
+
             {editError != null && (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400 mt-3">
                 {editError}
               </div>
             )}
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-3 pt-3">
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -421,26 +443,6 @@ export default function JobDetailPage() {
   )
 }
 
-function ConfigRow({
-  label,
-  className,
-  children,
-}: {
-  label: string
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className={className}>
-      <dt className="mb-1 text-xs font-medium text-zinc-500">{label}</dt>
-      <dd className="text-zinc-800 dark:text-zinc-200">{children}</dd>
-    </div>
-  )
-}
-
-const nestedInputCls =
-  "rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-600"
-
 const COMMON_HEADERS = [
   "Accept",
   "Authorization",
@@ -475,71 +477,52 @@ function HeadersEditor({
   }
 
   return (
-    <div className="rounded-lg border border-zinc-300 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+    <div>
       <datalist id="header-names-edit">
         {COMMON_HEADERS.map(h => (
           <option key={h} value={h} />
         ))}
       </datalist>
 
-      {headers.length > 0 ? (
-        <div className="mb-2 space-y-1.5">
+      {headers.length > 0 && (
+        <div className="mb-2 space-y-1">
           {headers.map((header, i) => (
-            <div key={i} className="flex items-center gap-2">
+            <div key={i} className="flex items-baseline gap-0">
               <input
                 type="text"
                 list="header-names-edit"
                 value={header.key}
                 onChange={e => updateRow(i, "key", e.target.value)}
-                placeholder="Name"
-                className={`w-44 ${nestedInputCls}`}
+                placeholder="Header-Name"
+                className={`${termInputCls} text-zinc-300 w-44 shrink-0`}
               />
-              <span className="text-zinc-400 dark:text-zinc-600">:</span>
+              <span className="shrink-0 text-zinc-500">: </span>
               <input
                 type="text"
                 value={header.value}
                 onChange={e => updateRow(i, "value", e.target.value)}
-                placeholder="Value"
-                className={`min-w-0 flex-1 ${nestedInputCls}`}
+                placeholder="value"
+                className={`${termInputCls} text-zinc-200 flex-1`}
               />
               <button
                 type="button"
                 onClick={() => removeRow(i)}
                 aria-label="Remove header"
-                className="shrink-0 rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-red-600 dark:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-red-400"
+                className="shrink-0 ml-2 text-zinc-600 transition-colors hover:text-red-400"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path
-                    d="M2 2l10 10M12 2L2 12"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
+                ×
               </button>
             </div>
           ))}
         </div>
-      ) : (
-        <p className="mb-2 text-xs text-zinc-400 dark:text-zinc-600">
-          No headers configured.
-        </p>
       )}
 
       <button
         type="button"
         onClick={addRow}
-        className="flex items-center gap-1.5 text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
+        className="text-xs text-emerald-500 transition-colors hover:text-emerald-400"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path
-            d="M6 1v10M1 6h10"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-        Add header
+        + add header
       </button>
     </div>
   )
@@ -556,56 +539,40 @@ function BodyField({
   onShow: (v: boolean) => void
   onChange: (v: string) => void
 }) {
+  if (show) {
+    return (
+      <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-4">
+        <p className="text-xs text-zinc-600 font-mono mb-2"># body</p>
+        <textarea
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          rows={4}
+          placeholder='{"key": "value"}'
+          className={`${termInputCls} text-zinc-300 resize-none`}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            onShow(false)
+            onChange("")
+          }}
+          className="mt-1 text-xs text-red-400 transition-colors hover:text-red-300"
+        >
+          − remove body
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      <dt className="mb-1 text-xs font-medium text-zinc-500">Body</dt>
-      <dd>
-        {show ? (
-          <div className="space-y-2">
-            <textarea
-              value={value}
-              onChange={e => onChange(e.target.value)}
-              rows={4}
-              placeholder='{"key": "value"}'
-              className={`${inputCls} font-mono`}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                onShow(false)
-                onChange("")
-              }}
-              className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path
-                  d="M2 2l8 8M10 2L2 10"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-              Remove body
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onShow(true)}
-            className="flex items-center gap-1.5 text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M6 1v10M1 6h10"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            Add body
-          </button>
-        )}
-      </dd>
+    <div className="mt-4">
+      <button
+        type="button"
+        onClick={() => onShow(true)}
+        className="text-xs text-emerald-500 transition-colors hover:text-emerald-400"
+      >
+        + add body
+      </button>
     </div>
   )
 }
@@ -619,60 +586,10 @@ function methodColor(method: string) {
 function CronComment({ expr }: { expr: string }) {
   try {
     const description = cronstrue.toString(expr.trim(), { verbose: false })
-    return <span className="text-zinc-600"> # {description.toLowerCase()}</span>
+    return (
+      <span className="text-zinc-600 ml-4"># {description.toLowerCase()}</span>
+    )
   } catch {
     return null
   }
-}
-
-function CronDescription({ expr }: { expr: string }) {
-  const [tick, reload] = useReducer(n => n + 1, 0)
-
-  const description = useMemo(() => {
-    try {
-      return cronstrue.toString(expr.trim())
-    } catch {
-      return null
-    }
-  }, [expr])
-
-  const nextRun = useMemo(() => {
-    try {
-      const job = new Cron(expr.trim(), { paused: true }, () => {})
-      const next = job.nextRun()
-      if (next == null) return null
-      const dt = DateTime.fromJSDate(next)
-      return dt.isValid ? dt : null
-    } catch {
-      return null
-    }
-  }, [expr, tick])
-
-  useEffect(() => {
-    if (nextRun == null) return
-    const ms = nextRun.diffNow().toMillis()
-    const t = setTimeout(reload, ms)
-    return () => clearTimeout(t)
-  }, [nextRun])
-
-  return (
-    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-600">
-      {description != null ? (
-        <>
-          {description}
-          {nextRun != null && (
-            <>
-              {" "}
-              · Next:{" "}
-              {nextRun.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}
-            </>
-          )}
-        </>
-      ) : (
-        <span className="text-red-500 dark:text-red-400">
-          Invalid cron expression
-        </span>
-      )}
-    </p>
-  )
 }
