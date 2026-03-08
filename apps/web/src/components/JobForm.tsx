@@ -7,6 +7,8 @@ import { Pause, Play, Trash2, ChevronRight } from "lucide-react"
 import { termInputCls } from "@/lib/styles"
 import { HeadersEditor } from "./HeadersEditor"
 import type { Header } from "./HeadersEditor"
+import { useMediaQuery } from "usehooks-ts"
+import { useHotkeys } from "react-hotkeys-hook"
 
 export type { Header }
 
@@ -122,6 +124,51 @@ function CronComment({ expr }: { expr: string }) {
   }
 }
 
+function UnsavedChangesIndicator({
+  handleSubmit,
+  submitting,
+  isNew,
+}: {
+  handleSubmit: () => void
+  submitting: boolean
+  isNew: boolean
+}) {
+  const isTouchScreen = useMediaQuery("(hover: none)")
+  useHotkeys(`mod-Enter`, handleSubmit)
+  const isMacOs = globalThis.navigator.platform.startsWith("Mac")
+  const saveText = isTouchScreen
+    ? "Save"
+    : isMacOs
+      ? "⌘ - Enter to save"
+      : "Ctrl - Enter to save"
+  return (
+    <>
+      <span className="text-xs transition-colors text-zinc-400 cursor-default dark:text-zinc-600">
+        Unsaved changes
+      </span>
+      <button
+        onClick={handleSubmit}
+        disabled={submitting}
+        className={clsx(
+          "ml-1 text-xs transition-colors disabled:opacity-50 cursor-pointer",
+          !isTouchScreen &&
+            "text-zinc-400 hover:text-zinc-700 cursor-default dark:text-zinc-600 dark:hover:text-zinc-300",
+          isTouchScreen &&
+            "px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-700 cursor-default text-zinc-600 hover:text-zinc-300",
+        )}
+      >
+        {submitting
+          ? isNew
+            ? "Creating…"
+            : "Saving…"
+          : isNew
+            ? "Create job"
+            : saveText}
+      </button>
+    </>
+  )
+}
+
 export function JobForm(props: JobFormProps) {
   const isNew = props.jobId == null
   const [submitting, setSubmitting] = useState(false)
@@ -195,11 +242,16 @@ export function JobForm(props: JobFormProps) {
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
       {/* Title bar */}
       <div className="flex items-center gap-2.5 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <span className="ml-2 flex-1 text-xs text-zinc-500">
-          tock — job config
-        </span>
+        <span className="ml-2 flex-1 text-xs text-zinc-500">Job config</span>
 
         <div className="flex items-center gap-1">
+          {hasChanges && (
+            <UnsavedChangesIndicator
+              handleSubmit={() => !submitting && handleSubmit()}
+              submitting={submitting}
+              isNew={isNew}
+            />
+          )}
           {props.onToggle != null && (
             <button
               onClick={props.onToggle}
@@ -217,24 +269,6 @@ export function JobForm(props: JobFormProps) {
               <Trash2 size={12} />
               Delete
             </button>
-          )}
-          {hasChanges && (
-            <>
-              <span className="ml-1 text-amber-400 text-xs select-none">●</span>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="ml-1 rounded px-2.5 py-1 text-xs font-medium bg-emerald-600 text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {submitting
-                  ? isNew
-                    ? "Creating…"
-                    : "Saving…"
-                  : isNew
-                    ? "Create job"
-                    : "Save"}
-              </button>
-            </>
           )}
         </div>
       </div>
@@ -408,12 +442,6 @@ export function JobForm(props: JobFormProps) {
           </div>
         )}
       </div>
-
-      <datalist id="http-methods-form">
-        {METHODS.map(m => (
-          <option key={m} value={m} />
-        ))}
-      </datalist>
     </div>
   )
 }
