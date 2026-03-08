@@ -216,7 +216,7 @@ export default function DashboardPage() {
                             }
                             reexecuteQuery({ requestPolicy: "network-only" })
                           }}
-                          className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+                          className="cursor-pointer rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
                         >
                           {job.isActive ? "Pause" : "Resume"}
                         </button>

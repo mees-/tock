@@ -181,7 +181,7 @@ export function HeadersEditor({
         <button
           type="button"
           onClick={addRow}
-          className="text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
+          className="cursor-pointer text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
         >
           + add header
         </button>

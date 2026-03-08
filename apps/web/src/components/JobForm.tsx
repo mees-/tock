@@ -255,7 +255,7 @@ export function JobForm(props: JobFormProps) {
           {props.onToggle != null && (
             <button
               onClick={props.onToggle}
-              className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+              className="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
             >
               {props.isActive ? <Pause size={12} /> : <Play size={12} />}
               {props.isActive ? "Pause" : "Resume"}
@@ -264,7 +264,7 @@ export function JobForm(props: JobFormProps) {
           {props.onDelete != null && (
             <button
               onClick={props.onDelete}
-              className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-red-500 transition-colors hover:text-red-400"
+              className="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs text-red-500 transition-colors hover:text-red-400"
             >
               <Trash2 size={12} />
               Delete
@@ -358,7 +358,7 @@ export function JobForm(props: JobFormProps) {
           <button
             type="button"
             onClick={() => setHeadersExpanded(v => !v)}
-            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
+            className="flex cursor-pointer items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
           >
             <ChevronRight
               size={14}
@@ -388,7 +388,7 @@ export function JobForm(props: JobFormProps) {
                 updateForm("body", "")
                 setBodyExpanded(true)
               }}
-              className="text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
+              className="cursor-pointer text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
             >
               + add body
             </button>
@@ -397,7 +397,7 @@ export function JobForm(props: JobFormProps) {
               <button
                 type="button"
                 onClick={() => setBodyExpanded(v => !v)}
-                className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
+                className="flex cursor-pointer items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
               >
                 <ChevronRight
                   size={14}
@@ -426,7 +426,7 @@ export function JobForm(props: JobFormProps) {
                       updateForm("body", null)
                       setBodyExpanded(false)
                     }}
-                    className="mt-1 text-xs text-red-500 transition-colors hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
+                    className="mt-1 cursor-pointer text-xs text-red-500 transition-colors hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
                   >
                     − remove body
                   </button>
