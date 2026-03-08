@@ -72,9 +72,9 @@ function isValidCron(s: string) {
 }
 
 function methodColor(method: string) {
-  if (method === "GET") return "text-emerald-400"
-  if (method === "DELETE") return "text-red-400"
-  return "text-blue-400"
+  if (method === "GET") return "text-emerald-600 dark:text-emerald-400"
+  if (method === "DELETE") return "text-red-500 dark:text-red-400"
+  return "text-blue-600 dark:text-blue-400"
 }
 
 function CronComment({ expr }: { expr: string }) {
@@ -192,9 +192,9 @@ export function JobForm(props: JobFormProps) {
   }, [hasChanges, submitting, form])
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow-lg">
+    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
       {/* Title bar */}
-      <div className="flex items-center gap-2.5 border-b border-zinc-800 px-4 py-3">
+      <div className="flex items-center gap-2.5 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <span className="ml-2 flex-1 text-xs text-zinc-500">
           tock — job config
         </span>
@@ -203,7 +203,7 @@ export function JobForm(props: JobFormProps) {
           {props.onToggle != null && (
             <button
               onClick={props.onToggle}
-              className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+              className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
             >
               {props.isActive ? <Pause size={12} /> : <Play size={12} />}
               {props.isActive ? "Pause" : "Resume"}
@@ -249,7 +249,7 @@ export function JobForm(props: JobFormProps) {
             onChange={e => updateForm("name", e.target.value)}
             className={clsx(
               termInputCls,
-              "text-white",
+              "text-zinc-900 dark:text-white",
               !form.name.trim() &&
                 hasChanges &&
                 "underline decoration-wavy decoration-red-500",
@@ -263,7 +263,7 @@ export function JobForm(props: JobFormProps) {
             type="text"
             value={form.description}
             onChange={e => updateForm("description", e.target.value)}
-            className={clsx(termInputCls, "text-zinc-400")}
+            className={clsx(termInputCls, "text-zinc-600 dark:text-zinc-400")}
           />
         </div>
 
@@ -286,7 +286,7 @@ export function JobForm(props: JobFormProps) {
             onChange={e => updateForm("endpoint", e.target.value)}
             className={clsx(
               termInputCls,
-              "text-blue-400",
+              "text-blue-600 dark:text-blue-400",
               hasChanges &&
                 !isValidUrl(form.endpoint) &&
                 "underline decoration-wavy decoration-red-500",
@@ -301,12 +301,16 @@ export function JobForm(props: JobFormProps) {
             value={form.cronExpression}
             onChange={e => updateForm("cronExpression", e.target.value)}
             style={{ width: `${Math.max(form.cronExpression.length, 1)}ch` }}
-            className={clsx(termInputCls, "text-white w-auto mr-4", {
-              "line-through text-zinc-400":
-                props.jobId != null && props.isActive === false,
-              "underline decoration-wavy decoration-red-500":
-                hasChanges && !isValidCron(form.cronExpression),
-            })}
+            className={clsx(
+              termInputCls,
+              "text-zinc-900 dark:text-white w-auto mr-4",
+              {
+                "line-through text-zinc-400":
+                  props.jobId != null && props.isActive === false,
+                "underline decoration-wavy decoration-red-500":
+                  hasChanges && !isValidCron(form.cronExpression),
+              },
+            )}
           />
           <CronComment expr={form.cronExpression} />
         </div>
@@ -316,7 +320,7 @@ export function JobForm(props: JobFormProps) {
           <button
             type="button"
             onClick={() => setHeadersExpanded(v => !v)}
-            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors disabled:cursor-default"
+            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
           >
             <ChevronRight
               size={14}
@@ -328,7 +332,7 @@ export function JobForm(props: JobFormProps) {
             Headers
           </button>
           {headersExpanded && (
-            <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-1">
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 mt-1 dark:border-zinc-700/60 dark:bg-zinc-800/30">
               <HeadersEditor
                 headers={form.headers}
                 onChange={v => updateForm("headers", v)}
@@ -346,7 +350,7 @@ export function JobForm(props: JobFormProps) {
                 updateForm("body", "")
                 setBodyExpanded(true)
               }}
-              className="text-xs text-emerald-500 transition-colors hover:text-emerald-400"
+              className="text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
             >
               + add body
             </button>
@@ -355,7 +359,7 @@ export function JobForm(props: JobFormProps) {
               <button
                 type="button"
                 onClick={() => setBodyExpanded(v => !v)}
-                className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors disabled:cursor-default"
+                className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
               >
                 <ChevronRight
                   size={14}
@@ -367,13 +371,16 @@ export function JobForm(props: JobFormProps) {
                 Body
               </button>
               {bodyExpanded && (
-                <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-1">
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 mt-1 dark:border-zinc-700/60 dark:bg-zinc-800/30">
                   <textarea
                     value={form.body}
                     onChange={e => updateForm("body", e.target.value)}
                     rows={4}
                     placeholder='{"key": "value"}'
-                    className={clsx(termInputCls, "text-zinc-300 resize-none")}
+                    className={clsx(
+                      termInputCls,
+                      "text-zinc-700 dark:text-zinc-300 resize-none",
+                    )}
                   />
                   <button
                     type="button"
@@ -381,7 +388,7 @@ export function JobForm(props: JobFormProps) {
                       updateForm("body", null)
                       setBodyExpanded(false)
                     }}
-                    className="mt-1 text-xs text-red-400 transition-colors hover:text-red-300"
+                    className="mt-1 text-xs text-red-500 transition-colors hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
                   >
                     − remove body
                   </button>
@@ -392,7 +399,7 @@ export function JobForm(props: JobFormProps) {
         </div>
 
         {error != null && (
-          <div className="rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400 mt-3">
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 mt-3 dark:bg-red-900/30 dark:text-red-400">
             {error}
           </div>
         )}

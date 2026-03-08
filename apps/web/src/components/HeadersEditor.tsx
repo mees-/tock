@@ -33,18 +33,36 @@ function HeaderOverlay({ raw }: { raw: string }) {
     value === "" || httpHeaderValidation.validateHeaderValue(value)
   if (idx === -1) {
     return (
-      <span className={isNameValid ? "text-sky-300" : "text-red-400"}>
+      <span
+        className={
+          isNameValid
+            ? "text-sky-600 dark:text-sky-300"
+            : "text-red-500 dark:text-red-400"
+        }
+      >
         {raw}
       </span>
     )
   }
   return (
     <>
-      <span className={isNameValid ? "text-sky-300" : "text-red-400"}>
+      <span
+        className={
+          isNameValid
+            ? "text-sky-600 dark:text-sky-300"
+            : "text-red-500 dark:text-red-400"
+        }
+      >
         {raw.slice(0, idx)}
       </span>
       <span className="text-zinc-600">:</span>
-      <span className={isValueValid ? "text-amber-200" : "text-red-400"}>
+      <span
+        className={
+          isValueValid
+            ? "text-amber-600 dark:text-amber-200"
+            : "text-red-500 dark:text-red-400"
+        }
+      >
         {raw.slice(idx + 1)}
       </span>
     </>
@@ -163,7 +181,7 @@ export function HeadersEditor({
         <button
           type="button"
           onClick={addRow}
-          className="text-xs text-emerald-500 transition-colors hover:text-emerald-400"
+          className="text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
         >
           + add header
         </button>
