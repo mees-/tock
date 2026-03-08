@@ -1,16 +1,17 @@
 export default function Sk({
-  w,
-  h,
+  width,
+  height,
   className = "",
 }: {
-  w: string | number
-  h: string | number
+  width: string | number
+  height: string | number
   className?: string
 }) {
   return (
     <div
-      className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-800 ${className}`}
-      style={{ width: w, height: h }}
+      aria-hidden="true"
+      className={`animate-pulse rounded bg-zinc-200 dark:bg-zinc-800 ${className}`.trim()}
+      style={{ width, height }}
     />
   )
 }
