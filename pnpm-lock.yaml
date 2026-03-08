@@ -182,6 +182,9 @@ importers:
       graphql:
         specifier: 'catalog:'
         version: 16.13.0
+      http-headers-validation:
+        specifier: ^0.0.2
+        version: 0.0.2
       lucide-react:
         specifier: ^0.575.0
         version: 0.575.0(react@19.2.4)
@@ -1798,6 +1801,9 @@ packages:
   hono@4.12.3:
     resolution: {integrity: sha512-SFsVSjp8sj5UumXOOFlkZOG6XS9SJDKw0TbwFeV+AJ8xlST8kxK5Z/5EYa111UY8732lK2S/xB653ceuaoGwpg==}
     engines: {node: '>=16.9.0'}
+
+  http-headers-validation@0.0.2:
+    resolution: {integrity: sha512-gbV+ny0Z/nAy4ye9YtWXYkcOBPKN/GjQgPne/mOdEb4M0Hze2LWoaBDej6v6fxo+BV0yGa50XFsS/fW7wcNJsw==}
 
   http-proxy-agent@7.0.2:
     resolution: {integrity: sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==}
@@ -3847,6 +3853,10 @@ snapshots:
   help-me@5.0.0: {}
 
   hono@4.12.3: {}
+
+  http-headers-validation@0.0.2:
+    dependencies:
+      typescript: 5.9.3
 
   http-proxy-agent@7.0.2:
     dependencies:

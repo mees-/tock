@@ -270,13 +270,6 @@ export function JobForm(props: JobFormProps) {
             onChange={e => updateForm("method", e.target.value.toUpperCase())}
             className={clsx(termInputCls, methodColor(display.method), "w-28")}
           />
-          {editing && (
-            <datalist id="http-methods-form">
-              {METHODS.map(m => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
-          )}
         </div>
 
         <div className="flex items-baseline gap-2">
