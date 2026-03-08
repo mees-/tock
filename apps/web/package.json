@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "gql-tada": "gql-tada generate-output",
-    "start": "serve -s dist -p $PORT"
+    "start": "serve -s dist -p $PORT",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@posthog/react": "^1.8.1",
@@ -39,6 +40,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "tailwindcss": "^4.2.1",
     "typescript": "catalog:",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^4.71.0"
   }
 }
