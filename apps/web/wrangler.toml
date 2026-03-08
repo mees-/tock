@@ -1,9 +1,6 @@
 name = "tock-web"
-compatibility_date = "2025-01-01"
-
-[assets]
-directory = "./dist"
-not_found_handling = "single-page-application"
+compatibility_date = "2026-03-08"
+pages_build_output_dir = "./dist"
 
 [build]
 command = "pnpm install --frozen-lockfile && pnpm build"
