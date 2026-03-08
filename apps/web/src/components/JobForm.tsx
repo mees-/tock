@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useReducer, useState } from "react"
+import clsx from "clsx"
 import cronstrue from "cronstrue"
 import { Cron } from "croner"
 import { DateTime } from "luxon"
 import { Pencil, X, Pause, Play, Trash2 } from "lucide-react"
+import { termInputCls } from "@/lib/styles"
 import { HeadersEditor } from "./HeadersEditor"
 import { BodyField } from "./BodyField"
 import type { Header } from "./HeadersEditor"
@@ -58,9 +60,6 @@ type JobFormProps =
       onDelete: () => Promise<void>
     }
 
-const termInputCls =
-  "bg-transparent border-none outline-none font-mono text-sm caret-emerald-400 selection:bg-emerald-900/40 w-full"
-
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
 
 function isValidUrl(s: string) {
@@ -88,9 +87,8 @@ function methodColor(method: string) {
 }
 
 function CronComment({ expr }: { expr: string }) {
-  // Next run calculation
   const expressionNormalized = expr.trim()
-  const [, reloadNextRun] = useReducer((n: number) => n + 1, 0)
+  const [tick, reloadNextRun] = useReducer((n: number) => n + 1, 0)
 
   const nextRunDate = useMemo(() => {
     try {
@@ -102,9 +100,7 @@ function CronComment({ expr }: { expr: string }) {
     } catch {
       return null
     }
-  }, [expressionNormalized])
-
-  const cronIsValid = nextRunDate != null
+  }, [expressionNormalized, tick])
 
   useEffect(() => {
     if (nextRunDate == null) return
@@ -118,23 +114,18 @@ function CronComment({ expr }: { expr: string }) {
     return nextRunDate.toLocaleString(DateTime.DATETIME_SHORT_WITH_SECONDS)
   }, [nextRunDate])
 
-  if (!cronIsValid) {
-    return null
-  }
+  const cronExpressionIsValid = nextRunDate != null
+  if (!cronExpressionIsValid) return null
 
   try {
-    const description = cronstrue.toString(expr.trim(), { verbose: false })
+    const description = cronstrue.toString(expressionNormalized, {
+      verbose: false,
+    })
     return (
-      <div className="text-zinc-600 flex flex-wrap">
-        <span className="mr-2"># {description.toLowerCase()}</span>
-        <span>
-          {nextRunFormatted != null && (
-            <>
-              -{">"} next: {nextRunFormatted}
-            </>
-          )}
-        </span>
-      </div>
+      <span className="text-zinc-600">
+        # {description.toLowerCase()}
+        {nextRunFormatted != null && <> → next: {nextRunFormatted}</>}
+      </span>
     )
   } catch {
     return null
@@ -150,6 +141,9 @@ export function JobForm(props: JobFormProps) {
     ...NEW_JOB_DEFAULTS,
     ...(props.initialValues ?? {}),
   })
+
+  // Values to display in always-visible fields (server values when read-only)
+  const display = props.mode === "edit" && !editing ? props.initialValues : form
 
   function updateForm<K extends keyof JobFormValues>(
     field: K,
@@ -233,141 +227,143 @@ export function JobForm(props: JobFormProps) {
         )}
       </div>
 
-      {/* Edit form */}
-      {editing && (
-        <div className="px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
-          <div className="flex items-baseline gap-2">
-            <span className="shrink-0 text-zinc-500">name:</span>
-            <input
-              type="text"
-              value={form.name}
-              onChange={e => updateForm("name", e.target.value)}
-              className={`${termInputCls} text-white ${!form.name.trim() ? "underline decoration-wavy decoration-red-500" : ""}`}
-            />
-          </div>
+      {/* Body — always rendered; editing-only fields are conditionally shown */}
+      <div className="px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
+        <div className="flex items-baseline gap-2">
+          <span className="shrink-0 text-zinc-500">name:</span>
+          <input
+            type="text"
+            readOnly={!editing}
+            disabled={!editing}
+            value={display.name}
+            onChange={e => updateForm("name", e.target.value)}
+            className={clsx(
+              termInputCls,
+              "text-white",
+              editing &&
+                !form.name.trim() &&
+                "underline decoration-wavy decoration-red-500",
+            )}
+          />
+        </div>
 
-          <div className="flex items-baseline gap-2">
-            <span className="shrink-0 text-zinc-500">desc:</span>
-            <input
-              type="text"
-              value={form.description}
-              onChange={e => updateForm("description", e.target.value)}
-              className={`${termInputCls} text-zinc-400`}
-            />
-          </div>
+        <div className="flex items-baseline gap-2">
+          <span className="shrink-0 text-zinc-500">desc:</span>
+          <input
+            type="text"
+            readOnly={!editing}
+            disabled={!editing}
+            value={display.description}
+            onChange={e => updateForm("description", e.target.value)}
+            className={clsx(termInputCls, "text-zinc-400")}
+          />
+        </div>
 
-          <div className="flex items-baseline gap-2">
-            <span className="shrink-0 text-zinc-500">method:</span>
-            <input
-              type="text"
-              list="http-methods-form"
-              value={form.method}
-              onChange={e => updateForm("method", e.target.value.toUpperCase())}
-              className={`${termInputCls} ${methodColor(form.method)} w-28`}
-            />
+        <div className="flex items-baseline gap-2">
+          <span className="shrink-0 text-zinc-500">method:</span>
+          <input
+            type="text"
+            list={editing ? "http-methods-form" : undefined}
+            readOnly={!editing}
+            disabled={!editing}
+            value={display.method}
+            onChange={e => updateForm("method", e.target.value.toUpperCase())}
+            className={clsx(termInputCls, methodColor(display.method), "w-28")}
+          />
+          {editing && (
             <datalist id="http-methods-form">
               {METHODS.map(m => (
                 <option key={m} value={m} />
               ))}
             </datalist>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <span className="shrink-0 text-zinc-500">endpoint:</span>
-            <input
-              type="text"
-              value={form.endpoint}
-              onChange={e => updateForm("endpoint", e.target.value)}
-              className={`${termInputCls} text-blue-400 ${!isValidUrl(form.endpoint) ? "underline decoration-wavy decoration-red-500" : ""}`}
-            />
-          </div>
-
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="shrink-0 text-zinc-500">schedule:</span>
-            <input
-              type="text"
-              value={form.cronExpression}
-              onChange={e => updateForm("cronExpression", e.target.value)}
-              style={{
-                width: `${Math.max(form.cronExpression.length, 1)}ch`,
-              }}
-              className={`${termInputCls} text-white w-auto ${!isValidCron(form.cronExpression) ? "underline decoration-wavy decoration-red-500" : ""} mr-4`}
-            />
-            <CronComment expr={form.cronExpression} />
-          </div>
-
-          <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-4">
-            <p className="text-xs text-zinc-600 font-mono mb-2"># headers</p>
-            <HeadersEditor
-              headers={form.headers}
-              onChange={v => updateForm("headers", v)}
-            />
-          </div>
-
-          <BodyField
-            value={form.body}
-            show={form.showBody}
-            onShow={v => updateForm("showBody", v)}
-            onChange={v => updateForm("body", v)}
-          />
-
-          {error != null && (
-            <div className="rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400 mt-3">
-              {error}
-            </div>
           )}
+        </div>
 
-          <div className="flex gap-3 pt-3">
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
-            >
-              {submitting
-                ? isNew
-                  ? "Creating…"
-                  : "Saving…"
-                : isNew
-                  ? "Create job"
-                  : "Save changes"}
-            </button>
-            {props.mode === "edit" && (
-              <button
-                onClick={cancelEdit}
-                className="rounded-lg border border-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
-              >
-                Cancel
-              </button>
+        <div className="flex items-baseline gap-2">
+          <span className="shrink-0 text-zinc-500">endpoint:</span>
+          <input
+            type="text"
+            readOnly={!editing}
+            disabled={!editing}
+            value={display.endpoint}
+            onChange={e => updateForm("endpoint", e.target.value)}
+            className={clsx(
+              termInputCls,
+              "text-blue-400",
+              editing &&
+                !isValidUrl(form.endpoint) &&
+                "underline decoration-wavy decoration-red-500",
             )}
-          </div>
+          />
         </div>
-      )}
 
-      {/* Read-only view (edit mode, not editing) */}
-      {props.mode === "edit" && !editing && (
-        <div className="px-5 py-4 font-mono text-sm leading-relaxed">
-          <p>
-            <span className="text-zinc-500">method: </span>
-            <span className={methodColor(props.initialValues.method)}>
-              {props.initialValues.method}
-            </span>
-          </p>
-          <p>
-            <span className="text-zinc-500">endpoint: </span>
-            <span className="text-blue-400">
-              {props.initialValues.endpoint}
-            </span>
-          </p>
-          <p>
-            <span className="text-zinc-500">schedule: </span>
-            <span className="text-white">
-              {props.initialValues.cronExpression}
-            </span>
-            <CronComment expr={props.initialValues.cronExpression} />
-          </p>
-          {!props.isActive && <p className="mt-3 text-zinc-600">paused</p>}
+        <div className="flex items-baseline gap-2 flex-wrap gap-y-1">
+          <span className="shrink-0 text-zinc-500">schedule:</span>
+          <input
+            type="text"
+            readOnly={!editing}
+            value={display.cronExpression}
+            onChange={e => updateForm("cronExpression", e.target.value)}
+            style={{ width: `${Math.max(display.cronExpression.length, 1)}ch` }}
+            className={clsx(termInputCls, "text-white w-auto mr-4", {
+              "line-through text-zinc-400":
+                props.mode === "edit" && props.isActive === false,
+              "underline decoration-wavy decoration-red-500":
+                editing && !isValidCron(form.cronExpression),
+            })}
+          />
+          <CronComment expr={display.cronExpression} />
         </div>
-      )}
+
+        {editing && (
+          <>
+            <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-4">
+              <p className="text-xs text-zinc-600 font-mono mb-2"># headers</p>
+              <HeadersEditor
+                headers={form.headers}
+                onChange={v => updateForm("headers", v)}
+              />
+            </div>
+
+            <BodyField
+              value={form.body}
+              show={form.showBody}
+              onShow={v => updateForm("showBody", v)}
+              onChange={v => updateForm("body", v)}
+            />
+
+            {error != null && (
+              <div className="rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400 mt-3">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-3">
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {submitting
+                  ? isNew
+                    ? "Creating…"
+                    : "Saving…"
+                  : isNew
+                    ? "Create job"
+                    : "Save changes"}
+              </button>
+              {props.mode === "edit" && (
+                <button
+                  onClick={cancelEdit}
+                  className="rounded-lg border border-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
-const termInputCls =
-  "bg-transparent border-none outline-none font-mono text-sm caret-emerald-400 selection:bg-emerald-900/40 w-full"
+import clsx from "clsx"
+import { termInputCls } from "@/lib/styles"
 
 export function BodyField({
   value,
@@ -21,7 +21,7 @@ export function BodyField({
           onChange={e => onChange(e.target.value)}
           rows={4}
           placeholder='{"key": "value"}'
-          className={`${termInputCls} text-zinc-300 resize-none`}
+          className={clsx(termInputCls, "text-zinc-300 resize-none")}
         />
         <button
           type="button"
