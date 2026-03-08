@@ -312,7 +312,11 @@ export function JobForm(props: JobFormProps) {
               },
             )}
           />
-          <CronComment expr={form.cronExpression} />
+          {props.isActive ? (
+            <CronComment expr={form.cronExpression} />
+          ) : (
+            <span className="text-zinc-600"># Paused</span>
+          )}
         </div>
 
         {/* Headers section */}
