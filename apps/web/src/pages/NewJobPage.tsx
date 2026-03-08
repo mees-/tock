@@ -26,7 +26,7 @@ export default function NewJobPage() {
         endpoint: values.endpoint,
         method: values.method,
         headers: serializeHeaders(values.headers),
-        body: values.showBody ? values.body || undefined : undefined,
+        body: values.body ?? undefined,
         cronExpression: values.cronExpression,
       },
     })
@@ -40,7 +40,7 @@ export default function NewJobPage() {
     posthog.capture("job_created", {
       method: values.method,
       cron_expression: values.cronExpression,
-      has_body: values.showBody && values.body !== "",
+      has_body: values.body != null && values.body !== "",
       has_headers: values.headers.some(h => h.key.trim() !== ""),
       has_description: values.description !== "",
     })
@@ -54,7 +54,7 @@ export default function NewJobPage() {
       <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white">
         New job
       </h1>
-      <JobForm mode="new" onSubmit={handleSubmit} />
+      <JobForm onSubmit={handleSubmit} />
     </div>
   )
 }

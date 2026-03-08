@@ -86,8 +86,7 @@ function toFormValues(job: {
     cronExpression: job.cronExpression,
     timezone: job.timezone,
     headers: Object.entries(parsed).map(([key, value]) => ({ key, value })),
-    body: job.body ?? "",
-    showBody: job.body != null,
+    body: job.body ?? null,
   }
 }
 
@@ -153,7 +152,7 @@ export default function JobDetailPage() {
         endpoint: values.endpoint,
         method: values.method,
         headers: serializeHeaders(values.headers),
-        body: values.showBody ? values.body || undefined : undefined,
+        body: values.body,
         cronExpression: values.cronExpression,
         timezone: values.timezone,
       },
@@ -185,7 +184,7 @@ export default function JobDetailPage() {
       {/* Config card */}
       <div className="mb-8">
         <JobForm
-          mode="edit"
+          jobId={job.id}
           isActive={job.isActive}
           initialValues={toFormValues(job)}
           onSubmit={handleSubmit}

@@ -3,10 +3,9 @@ import clsx from "clsx"
 import cronstrue from "cronstrue"
 import { Cron } from "croner"
 import { DateTime } from "luxon"
-import { Pencil, X, Pause, Play, Trash2 } from "lucide-react"
+import { Pause, Play, Trash2, ChevronRight } from "lucide-react"
 import { termInputCls } from "@/lib/styles"
 import { HeadersEditor } from "./HeadersEditor"
-import { BodyField } from "./BodyField"
 import type { Header } from "./HeadersEditor"
 
 export type { Header }
@@ -19,8 +18,7 @@ export type JobFormValues = {
   cronExpression: string
   timezone: string
   headers: Header[]
-  body: string
-  showBody: boolean
+  body: string | null
 }
 
 export const NEW_JOB_DEFAULTS: JobFormValues = {
@@ -31,8 +29,7 @@ export const NEW_JOB_DEFAULTS: JobFormValues = {
   cronExpression: "0 * * * *",
   timezone: "UTC",
   headers: [],
-  body: "",
-  showBody: false,
+  body: null,
 }
 
 export function serializeHeaders(headers: Header[]) {
@@ -45,20 +42,14 @@ export function serializeHeaders(headers: Header[]) {
   )
 }
 
-type JobFormProps =
-  | {
-      mode: "new"
-      initialValues?: Partial<JobFormValues>
-      onSubmit: (values: JobFormValues) => Promise<void>
-    }
-  | {
-      mode: "edit"
-      isActive: boolean
-      initialValues: JobFormValues
-      onSubmit: (values: JobFormValues) => Promise<void>
-      onToggle: () => Promise<void>
-      onDelete: () => Promise<void>
-    }
+type JobFormProps = {
+  jobId?: number
+  isActive?: boolean
+  initialValues?: Partial<JobFormValues>
+  onSubmit: (values: JobFormValues) => Promise<void>
+  onToggle?: () => Promise<void>
+  onDelete?: () => Promise<void>
+}
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
 
@@ -114,8 +105,7 @@ function CronComment({ expr }: { expr: string }) {
     return nextRunDate.toLocaleString(DateTime.DATETIME_SHORT_WITH_SECONDS)
   }, [nextRunDate])
 
-  const cronExpressionIsValid = nextRunDate != null
-  if (!cronExpressionIsValid) return null
+  if (nextRunDate == null) return null
 
   try {
     const description = cronstrue.toString(expressionNormalized, {
@@ -133,8 +123,7 @@ function CronComment({ expr }: { expr: string }) {
 }
 
 export function JobForm(props: JobFormProps) {
-  const isNew = props.mode === "new"
-  const [editing, setEditing] = useState(isNew)
+  const isNew = props.jobId == null
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<JobFormValues>({
@@ -142,27 +131,36 @@ export function JobForm(props: JobFormProps) {
     ...(props.initialValues ?? {}),
   })
 
-  // Values to display in always-visible fields (server values when read-only)
-  const display = props.mode === "edit" && !editing ? props.initialValues : form
+  const [baseline, setBaseline] = useState<JobFormValues>(() => ({
+    ...NEW_JOB_DEFAULTS,
+    ...(props.initialValues ?? {}),
+  }))
+
+  const hasChanges = useMemo(() => {
+    return (
+      form.name !== baseline.name ||
+      form.description !== baseline.description ||
+      form.endpoint !== baseline.endpoint ||
+      form.method !== baseline.method ||
+      form.cronExpression !== baseline.cronExpression ||
+      form.timezone !== baseline.timezone ||
+      form.body !== baseline.body ||
+      JSON.stringify(form.headers) !== JSON.stringify(baseline.headers)
+    )
+  }, [form, baseline])
+
+  const [headersExpanded, setHeadersExpanded] = useState(
+    () => (props.initialValues?.headers ?? []).length > 0,
+  )
+  const [bodyExpanded, setBodyExpanded] = useState(
+    () => props.initialValues?.body != null,
+  )
 
   function updateForm<K extends keyof JobFormValues>(
     field: K,
     value: JobFormValues[K],
   ) {
     setForm(prev => ({ ...prev, [field]: value }))
-  }
-
-  function enterEdit() {
-    if (props.mode === "edit") {
-      setForm({ ...NEW_JOB_DEFAULTS, ...props.initialValues })
-    }
-    setError(null)
-    setEditing(true)
-  }
-
-  function cancelEdit() {
-    setEditing(false)
-    setError(null)
   }
 
   async function handleSubmit() {
@@ -174,15 +172,24 @@ export function JobForm(props: JobFormProps) {
     setError(null)
     try {
       await props.onSubmit(form)
-      if (props.mode === "edit") {
-        setEditing(false)
-      }
+      setBaseline(form)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setSubmitting(false)
     }
   }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault()
+        if (!submitting && hasChanges) handleSubmit()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [hasChanges, submitting, form])
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow-lg">
@@ -192,8 +199,8 @@ export function JobForm(props: JobFormProps) {
           tock — job config
         </span>
 
-        {props.mode === "edit" && !editing && (
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1">
+          {props.onToggle != null && (
             <button
               onClick={props.onToggle}
               className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
@@ -201,6 +208,8 @@ export function JobForm(props: JobFormProps) {
               {props.isActive ? <Pause size={12} /> : <Play size={12} />}
               {props.isActive ? "Pause" : "Resume"}
             </button>
+          )}
+          {props.onDelete != null && (
             <button
               onClick={props.onDelete}
               className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-red-500 transition-colors hover:text-red-400"
@@ -208,40 +217,41 @@ export function JobForm(props: JobFormProps) {
               <Trash2 size={12} />
               Delete
             </button>
-            <button
-              onClick={enterEdit}
-              className="rounded p-1 text-zinc-400 transition-colors hover:text-zinc-300"
-            >
-              <Pencil size={14} />
-            </button>
-          </div>
-        )}
-
-        {props.mode === "edit" && editing && (
-          <button
-            onClick={cancelEdit}
-            className="rounded p-1 text-zinc-400 transition-colors hover:text-zinc-300"
-          >
-            <X size={14} />
-          </button>
-        )}
+          )}
+          {hasChanges && (
+            <>
+              <span className="ml-1 text-amber-400 text-xs select-none">●</span>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="ml-1 rounded px-2.5 py-1 text-xs font-medium bg-emerald-600 text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {submitting
+                  ? isNew
+                    ? "Creating…"
+                    : "Saving…"
+                  : isNew
+                    ? "Create job"
+                    : "Save"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Body — always rendered; editing-only fields are conditionally shown */}
+      {/* Body */}
       <div className="px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 text-zinc-500">name:</span>
           <input
             type="text"
-            readOnly={!editing}
-            disabled={!editing}
-            value={display.name}
+            value={form.name}
             onChange={e => updateForm("name", e.target.value)}
             className={clsx(
               termInputCls,
               "text-white",
-              editing &&
-                !form.name.trim() &&
+              !form.name.trim() &&
+                hasChanges &&
                 "underline decoration-wavy decoration-red-500",
             )}
           />
@@ -251,9 +261,7 @@ export function JobForm(props: JobFormProps) {
           <span className="shrink-0 text-zinc-500">desc:</span>
           <input
             type="text"
-            readOnly={!editing}
-            disabled={!editing}
-            value={display.description}
+            value={form.description}
             onChange={e => updateForm("description", e.target.value)}
             className={clsx(termInputCls, "text-zinc-400")}
           />
@@ -263,12 +271,10 @@ export function JobForm(props: JobFormProps) {
           <span className="shrink-0 text-zinc-500">method:</span>
           <input
             type="text"
-            list={editing ? "http-methods-form" : undefined}
-            readOnly={!editing}
-            disabled={!editing}
-            value={display.method}
+            list="http-methods-form"
+            value={form.method}
             onChange={e => updateForm("method", e.target.value.toUpperCase())}
-            className={clsx(termInputCls, methodColor(display.method), "w-28")}
+            className={clsx(termInputCls, methodColor(form.method), "w-28")}
           />
         </div>
 
@@ -276,14 +282,12 @@ export function JobForm(props: JobFormProps) {
           <span className="shrink-0 text-zinc-500">endpoint:</span>
           <input
             type="text"
-            readOnly={!editing}
-            disabled={!editing}
-            value={display.endpoint}
+            value={form.endpoint}
             onChange={e => updateForm("endpoint", e.target.value)}
             className={clsx(
               termInputCls,
               "text-blue-400",
-              editing &&
+              hasChanges &&
                 !isValidUrl(form.endpoint) &&
                 "underline decoration-wavy decoration-red-500",
             )}
@@ -294,69 +298,111 @@ export function JobForm(props: JobFormProps) {
           <span className="shrink-0 text-zinc-500">schedule:</span>
           <input
             type="text"
-            readOnly={!editing}
-            value={display.cronExpression}
+            value={form.cronExpression}
             onChange={e => updateForm("cronExpression", e.target.value)}
-            style={{ width: `${Math.max(display.cronExpression.length, 1)}ch` }}
+            style={{ width: `${Math.max(form.cronExpression.length, 1)}ch` }}
             className={clsx(termInputCls, "text-white w-auto mr-4", {
               "line-through text-zinc-400":
-                props.mode === "edit" && props.isActive === false,
+                props.jobId != null && props.isActive === false,
               "underline decoration-wavy decoration-red-500":
-                editing && !isValidCron(form.cronExpression),
+                hasChanges && !isValidCron(form.cronExpression),
             })}
           />
-          <CronComment expr={display.cronExpression} />
+          <CronComment expr={form.cronExpression} />
         </div>
 
-        {editing && (
-          <>
-            <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-4">
-              <p className="text-xs text-zinc-600 font-mono mb-2"># headers</p>
+        {/* Headers section */}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setHeadersExpanded(v => !v)}
+            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors disabled:cursor-default"
+          >
+            <ChevronRight
+              size={14}
+              className={clsx(
+                "transition-transform",
+                headersExpanded && "rotate-90",
+              )}
+            />
+            Headers
+          </button>
+          {headersExpanded && (
+            <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-1">
               <HeadersEditor
                 headers={form.headers}
                 onChange={v => updateForm("headers", v)}
               />
             </div>
+          )}
+        </div>
 
-            <BodyField
-              value={form.body}
-              show={form.showBody}
-              onShow={v => updateForm("showBody", v)}
-              onChange={v => updateForm("body", v)}
-            />
-
-            {error != null && (
-              <div className="rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400 mt-3">
-                {error}
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-3">
+        {/* Body section */}
+        <div className="mt-2">
+          {form.body == null ? (
+            <button
+              type="button"
+              onClick={() => {
+                updateForm("body", "")
+                setBodyExpanded(true)
+              }}
+              className="text-xs text-emerald-500 transition-colors hover:text-emerald-400"
+            >
+              + add body
+            </button>
+          ) : (
+            <>
               <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+                type="button"
+                onClick={() => setBodyExpanded(v => !v)}
+                className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors disabled:cursor-default"
               >
-                {submitting
-                  ? isNew
-                    ? "Creating…"
-                    : "Saving…"
-                  : isNew
-                    ? "Create job"
-                    : "Save changes"}
+                <ChevronRight
+                  size={14}
+                  className={clsx(
+                    "transition-transform",
+                    bodyExpanded && "rotate-90",
+                  )}
+                />
+                Body
               </button>
-              {props.mode === "edit" && (
-                <button
-                  onClick={cancelEdit}
-                  className="rounded-lg border border-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:text-white"
-                >
-                  Cancel
-                </button>
+              {bodyExpanded && (
+                <div className="rounded-lg border border-zinc-700/60 bg-zinc-800/30 px-4 py-3 mt-1">
+                  <textarea
+                    value={form.body}
+                    onChange={e => updateForm("body", e.target.value)}
+                    rows={4}
+                    placeholder='{"key": "value"}'
+                    className={clsx(termInputCls, "text-zinc-300 resize-none")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateForm("body", null)
+                      setBodyExpanded(false)
+                    }}
+                    className="mt-1 text-xs text-red-400 transition-colors hover:text-red-300"
+                  >
+                    − remove body
+                  </button>
+                </div>
               )}
-            </div>
-          </>
+            </>
+          )}
+        </div>
+
+        {error != null && (
+          <div className="rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400 mt-3">
+            {error}
+          </div>
         )}
       </div>
+
+      <datalist id="http-methods-form">
+        {METHODS.map(m => (
+          <option key={m} value={m} />
+        ))}
+      </datalist>
     </div>
   )
 }
