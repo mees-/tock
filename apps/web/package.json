@@ -13,6 +13,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@posthog/react": "^1.8.1",
     "@urql/exchange-auth": "^3.0.0",
     "clsx": "^2.1.1",
@@ -26,11 +27,13 @@
     "posthog-js": "^1.354.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-hook-form": "^7.71.2",
     "react-hotkeys-hook": "^5.2.4",
     "serve": "^14.2.5",
     "urql": "^5.0.1",
     "usehooks-ts": "^3.1.1",
     "wouter": "^3.5.0",
+    "zod": "catalog:",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

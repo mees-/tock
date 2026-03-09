@@ -82,9 +82,8 @@ function toFormValues(job: {
     name: job.name,
     description: job.description,
     endpoint: job.endpoint,
-    method: job.method,
+    method: job.method as JobFormValues["method"],
     cronExpression: job.cronExpression,
-    timezone: job.timezone,
     headers: Object.entries(parsed).map(([key, value]) => ({ key, value })),
     body: job.body ?? null,
   }
@@ -154,7 +153,7 @@ export default function JobDetailPage() {
         headers: serializeHeaders(values.headers),
         body: values.body,
         cronExpression: values.cronExpression,
-        timezone: values.timezone,
+        timezone: null,
       },
     })
 
