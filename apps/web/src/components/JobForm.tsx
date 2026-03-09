@@ -10,7 +10,6 @@ import type { Header } from "./HeadersEditor"
 import { useMediaQuery } from "usehooks-ts"
 import { useHotkeys } from "react-hotkeys-hook"
 import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, Controller } from "react-hook-form"
 
 export type { Header }
@@ -43,6 +42,15 @@ const schema = z.object({
   headers: z.array(z.object({ key: z.string(), value: z.string() })),
   body: z.string().nullable(),
 })
+
+function zv<T>(fieldSchema: z.ZodType<T>) {
+  return (value: T) => {
+    const result = fieldSchema.safeParse(value)
+    return result.success
+      ? true
+      : (result.error.issues[0]?.message ?? "Invalid")
+  }
+}
 
 type JobFormValues = z.infer<typeof schema>
 
@@ -128,7 +136,7 @@ function CronComment({ expr }: { expr: string }) {
   }
 }
 
-function UnsavedChangesIndicator({
+function FormActionHint({
   handleSubmit,
   submitting,
   isNew,
@@ -142,71 +150,67 @@ function UnsavedChangesIndicator({
   const isTouchScreen = useMediaQuery("(hover: none)")
   useHotkeys(`mod-Enter`, handleSubmit)
   const isMacOs = globalThis.navigator.platform.startsWith("Mac")
-  const saveText = isTouchScreen
-    ? "Save"
-    : isMacOs
-      ? "⌘ - Enter to save"
-      : "Ctrl - Enter to save"
-  return (
-    <>
-      <span className="text-xs transition-colors text-zinc-400 cursor-default dark:text-zinc-600">
-        {hasErrors ? "Errors in form" : "Unsaved changes"}
+
+  if (hasErrors) {
+    return (
+      <span className="text-xs text-zinc-400 cursor-default dark:text-zinc-600">
+        {isNew ? "Fix the errors" : "Fix the errors in the form"}
       </span>
-      <button
-        type="submit"
-        disabled={submitting || hasErrors}
-        className={clsx(
-          "ml-1 text-xs transition-colors disabled:opacity-50",
-          hasErrors
-            ? "cursor-not-allowed text-zinc-400 dark:text-zinc-600"
-            : clsx(
-                "cursor-pointer",
-                !isTouchScreen &&
-                  "text-zinc-400 hover:text-zinc-700 cursor-default dark:text-zinc-600 dark:hover:text-zinc-300",
-                isTouchScreen &&
-                  "px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-700 cursor-default text-zinc-600 hover:text-zinc-300",
-              ),
-        )}
-      >
-        {submitting
-          ? isNew
-            ? "Creating…"
-            : "Saving…"
-          : isNew
-            ? "Create job"
-            : hasErrors
-              ? "Fix errors"
-              : saveText}
-      </button>
-    </>
+    )
+  }
+
+  const shortCutText = isMacOs ? "⌘+⏎" : "Ctrl+⏎"
+
+  const actionText = submitting
+    ? isNew
+      ? "Creating…"
+      : "Saving…"
+    : isNew
+      ? `Create (${shortCutText})`
+      : isTouchScreen
+        ? "Save"
+        : `Save (${shortCutText})`
+
+  return (
+    <button
+      type="submit"
+      disabled={submitting}
+      className={clsx(
+        "text-xs transition-colors disabled:opacity-50",
+        isTouchScreen
+          ? "px-2 py-1 rounded bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-700 cursor-default text-zinc-600 hover:text-zinc-300"
+          : "text-zinc-400 hover:text-zinc-700 cursor-default dark:text-zinc-600 dark:hover:text-zinc-300",
+      )}
+    >
+      {actionText}
+    </button>
   )
 }
 
-function ErrorTooltip({
-  message,
-  children,
-}: {
-  message?: string
-  children: React.ReactNode
-}) {
-  const [visible, setVisible] = useState(false)
-
-  if (!message) return <>{children}</>
+function FormInput({
+  error,
+  className,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { error?: string }) {
+  const [hovered, setHovered] = useState(false)
 
   return (
-    <span
-      className="relative"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-      onTouchStart={() => setVisible(true)}
-      onTouchEnd={() => setVisible(false)}
-    >
-      <span className="underline decoration-wavy decoration-red-500">
-        {children}
-      </span>
-      {visible && (
+    <span className="relative">
+      <input
+        autoComplete="off"
+        {...props}
+        className={clsx(
+          className,
+          error && "underline decoration-wavy decoration-red-500",
+        )}
+        onMouseEnter={() => error && setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onTouchStart={() => error && setHovered(true)}
+        onTouchEnd={() => setHovered(false)}
+      />
+      {hovered && error && (
         <span className="absolute bottom-full left-0 z-50 mb-1 whitespace-nowrap rounded border border-red-500/30 bg-zinc-900 px-2 py-1 font-mono text-xs text-red-400 shadow-lg dark:bg-zinc-950">
-          {message}
+          {error}
         </span>
       )}
     </span>
@@ -226,7 +230,6 @@ export function JobForm(props: JobFormProps) {
     formState: { errors, isDirty, isSubmitting, isValid },
   } = useForm<JobFormValues>({
     mode: "onChange",
-    resolver: zodResolver(schema),
     defaultValues: {
       ...NEW_JOB_DEFAULTS,
       ...(props.initialValues ?? {}),
@@ -268,7 +271,7 @@ export function JobForm(props: JobFormProps) {
 
         <div className="flex items-center gap-1">
           {(hasChanges || hasErrors) && (
-            <UnsavedChangesIndicator
+            <FormActionHint
               handleSubmit={handleSubmit}
               submitting={submitting}
               isNew={isNew}
@@ -300,13 +303,12 @@ export function JobForm(props: JobFormProps) {
       <div className="px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 text-zinc-500">name:</span>
-          <ErrorTooltip message={errors.name?.message}>
-            <input
-              type="text"
-              {...register("name")}
-              className={clsx(termInputCls, "text-zinc-900 dark:text-white")}
-            />
-          </ErrorTooltip>
+          <FormInput
+            type="text"
+            {...register("name", { validate: zv(schema.shape.name) })}
+            error={errors.name?.message}
+            className={clsx(termInputCls, "text-zinc-900 dark:text-white")}
+          />
         </div>
 
         <div className="flex items-baseline gap-2">
@@ -320,48 +322,47 @@ export function JobForm(props: JobFormProps) {
 
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 text-zinc-500">method:</span>
-          <ErrorTooltip message={errors.method?.message}>
-            <input
-              type="text"
-              list="http-methods-form"
-              {...register("method", {
-                setValueAs: (v: string) => v.toUpperCase(),
-              })}
-              className={clsx(termInputCls, methodColor(method), "w-28")}
-            />
-          </ErrorTooltip>
+          <FormInput
+            type="text"
+            {...register("method", {
+              setValueAs: (v: string) => v.toUpperCase(),
+              validate: zv(schema.shape.method),
+            })}
+            error={errors.method?.message}
+            className={clsx(termInputCls, methodColor(method), "w-28")}
+          />
         </div>
 
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 text-zinc-500">endpoint:</span>
-          <ErrorTooltip message={errors.endpoint?.message}>
-            <input
-              type="text"
-              {...register("endpoint")}
-              className={clsx(termInputCls, "text-blue-600 dark:text-blue-400")}
-            />
-          </ErrorTooltip>
+          <FormInput
+            type="text"
+            {...register("endpoint", { validate: zv(schema.shape.endpoint) })}
+            error={errors.endpoint?.message}
+            className={clsx(termInputCls, "text-blue-600 dark:text-blue-400")}
+          />
         </div>
 
         <div className="flex items-baseline gap-2 flex-wrap gap-y-1">
           <span className="shrink-0 text-zinc-500">schedule:</span>
-          <ErrorTooltip message={errors.cronExpression?.message}>
-            <input
-              type="text"
-              {...register("cronExpression")}
-              style={{
-                width: `${Math.max(cronExpression.length, 1)}ch`,
-              }}
-              className={clsx(
-                termInputCls,
-                "text-zinc-900 dark:text-white w-auto mr-4",
-                {
-                  "line-through text-zinc-400":
-                    props.jobId != null && props.isActive === false,
-                },
-              )}
-            />
-          </ErrorTooltip>
+          <FormInput
+            type="text"
+            {...register("cronExpression", {
+              validate: zv(schema.shape.cronExpression),
+            })}
+            error={errors.cronExpression?.message}
+            style={{
+              width: `${Math.max(cronExpression.length, 1)}ch`,
+            }}
+            className={clsx(
+              termInputCls,
+              "text-zinc-900 dark:text-white w-auto mr-4",
+              {
+                "line-through text-zinc-400":
+                  props.jobId != null && props.isActive === false,
+              },
+            )}
+          />
           {props.isActive ? (
             <CronComment expr={cronExpression} />
           ) : (
