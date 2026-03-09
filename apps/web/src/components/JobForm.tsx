@@ -339,7 +339,7 @@ export function JobForm(props: JobFormProps) {
             type="text"
             {...register("endpoint", { validate: zv(schema.shape.endpoint) })}
             error={errors.endpoint?.message}
-            className={clsx(termInputCls, "text-blue-600 dark:text-blue-400")}
+            className={clsx(termInputCls, "grow text-blue-600 dark:text-blue-400")}
           />
         </div>
 
