@@ -31,7 +31,10 @@
     "urql": "^5.0.1",
     "usehooks-ts": "^3.1.1",
     "wouter": "^3.5.0",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "react-hook-form": "^7.54.2",
+    "@hookform/resolvers": "^3.10.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
