@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { Check, Copy } from "lucide-react"
 import { parseJson } from "@/lib/parseJson"
 import { isRunStatus } from "@/lib/typeGuards"
@@ -91,9 +91,8 @@ export default function RunsTable({
                 : null
 
             return (
-              <>
+              <Fragment key={run.id}>
                 <tr
-                  key={run.id}
                   onClick={() => setExpandedId(isExpanded ? null : run.id)}
                   className="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
                 >
@@ -134,10 +133,7 @@ export default function RunsTable({
                 </tr>
 
                 {isExpanded && (
-                  <tr
-                    key={`${run.id}-detail`}
-                    className="bg-zinc-50 dark:bg-zinc-950"
-                  >
+                  <tr className="bg-zinc-50 dark:bg-zinc-950">
                     <td colSpan={4} className="px-4 py-4">
                       <div className="space-y-4">
                         {run.errorMessage != null && (
@@ -204,7 +200,7 @@ export default function RunsTable({
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             )
           })}
         </tbody>

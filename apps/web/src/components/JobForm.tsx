@@ -194,17 +194,26 @@ function FormActionHint({
   )
 }
 
-const FormInput = React.forwardRef<
-  HTMLInputElement,
-  React.InputHTMLAttributes<HTMLInputElement> & { error?: string }
->(function FormInput({ error, className, onChange, ...props }, forwardedRef) {
+function FormInput({
+  error,
+  className,
+  onChange,
+  ref: forwardedRef,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & {
+  error?: string
+  ref?: React.Ref<HTMLInputElement>
+}) {
   const [length, setLength] = useState(0)
 
   const ref = useCallback(
     (el: HTMLInputElement | null) => {
       if (el) setLength(el.value.length)
       if (typeof forwardedRef === "function") forwardedRef(el)
-      else if (forwardedRef != null) forwardedRef.current = el
+      else if (forwardedRef != null)
+        (
+          forwardedRef as React.MutableRefObject<HTMLInputElement | null>
+        ).current = el
     },
     [forwardedRef],
   )
@@ -230,7 +239,7 @@ const FormInput = React.forwardRef<
       {error && <span className="text-red-500">← {error}</span>}
     </div>
   )
-})
+}
 
 export function JobForm(props: JobFormProps) {
   const isNew = props.jobId == null
