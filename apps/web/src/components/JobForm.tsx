@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react"
 import clsx from "clsx"
@@ -241,6 +242,40 @@ function FormInput({
   )
 }
 
+function ConfigLine({
+  label,
+  children,
+  className,
+}: {
+  label: string
+  children: React.ReactNode
+  className?: string
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLButtonElement ||
+      e.target instanceof HTMLSelectElement
+    )
+      return
+    containerRef.current?.querySelector<HTMLInputElement>("input")?.focus()
+  }, [])
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={handleClick}
+      className={clsx("flex items-baseline gap-2 cursor-text", className)}
+    >
+      <span className="shrink-0 cursor-default text-zinc-500">{label}</span>
+      {children}
+    </div>
+  )
+}
+
 export function JobForm(props: JobFormProps) {
   const isNew = props.jobId == null
   const [error, setError] = useState<string | null>(null)
@@ -325,27 +360,24 @@ export function JobForm(props: JobFormProps) {
 
       {/* Body */}
       <div className="px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
-        <div className="flex items-baseline gap-2">
-          <span className="shrink-0 text-zinc-500">name:</span>
+        <ConfigLine label="name:">
           <FormInput
             type="text"
             {...register("name", { validate: zv(schema.shape.name) })}
             error={errors.name?.message}
             className={clsx(termInputCls, "text-zinc-900 dark:text-white")}
           />
-        </div>
+        </ConfigLine>
 
-        <div className="flex items-baseline gap-2">
-          <span className="shrink-0 text-zinc-500">desc:</span>
+        <ConfigLine label="desc:">
           <FormInput
             type="text"
             {...register("description")}
             className={clsx(termInputCls, "text-zinc-600 dark:text-zinc-400")}
           />
-        </div>
+        </ConfigLine>
 
-        <div className="flex items-baseline gap-2">
-          <span className="shrink-0 text-zinc-500">method:</span>
+        <ConfigLine label="method:">
           <FormInput
             type="text"
             {...register("method", {
@@ -355,10 +387,9 @@ export function JobForm(props: JobFormProps) {
             error={errors.method?.message}
             className={clsx(termInputCls, methodColor(method), "w-28")}
           />
-        </div>
+        </ConfigLine>
 
-        <div className="flex items-baseline gap-2">
-          <span className="shrink-0 text-zinc-500">endpoint:</span>
+        <ConfigLine label="endpoint:">
           <FormInput
             type="text"
             {...register("endpoint", { validate: zv(schema.shape.endpoint) })}
@@ -368,10 +399,9 @@ export function JobForm(props: JobFormProps) {
               "grow text-blue-600 dark:text-blue-400",
             )}
           />
-        </div>
+        </ConfigLine>
 
-        <div className="flex items-baseline gap-2 flex-wrap gap-y-1">
-          <span className="shrink-0 text-zinc-500">schedule:</span>
+        <ConfigLine label="schedule:" className="flex-wrap gap-y-1">
           <FormInput
             type="text"
             {...register("cronExpression", {
@@ -395,7 +425,7 @@ export function JobForm(props: JobFormProps) {
           ) : (
             <span className="text-zinc-600"># Paused</span>
           )}
-        </div>
+        </ConfigLine>
 
         {/* Headers section */}
         <div className="mt-4">
