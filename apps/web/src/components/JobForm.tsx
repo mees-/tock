@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useReducer, useState } from "react"
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react"
 import clsx from "clsx"
 import cronstrue from "cronstrue"
 import { Cron } from "croner"
@@ -27,8 +33,9 @@ const METHODS = [
 function isValidCron(s: string) {
   try {
     cronstrue.toString(s.trim())
+    new Cron(s, { paused: true }, () => {})
     return true
-  } catch {
+  } catch (e) {
     return false
   }
 }
@@ -36,7 +43,7 @@ function isValidCron(s: string) {
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string(),
-  endpoint: z.string().url("Must be a valid URL"),
+  endpoint: z.httpUrl(),
   method: z.enum(METHODS, { error: "Invalid HTTP method" }),
   cronExpression: z.string().refine(isValidCron, "Invalid cron expression"),
   headers: z.array(z.object({ key: z.string(), value: z.string() })),
@@ -187,35 +194,43 @@ function FormActionHint({
   )
 }
 
-function FormInput({
-  error,
-  className,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { error?: string }) {
-  const [hovered, setHovered] = useState(false)
+const FormInput = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { error?: string }
+>(function FormInput({ error, className, onChange, ...props }, forwardedRef) {
+  const [length, setLength] = useState(0)
+
+  const ref = useCallback(
+    (el: HTMLInputElement | null) => {
+      if (el) setLength(el.value.length)
+      if (typeof forwardedRef === "function") forwardedRef(el)
+      else if (forwardedRef != null) forwardedRef.current = el
+    },
+    [forwardedRef],
+  )
+
+  const inputWidth = length === 0 ? 10 : length + 5
 
   return (
-    <span className="relative">
+    <div className="flex justify-items-start">
       <input
+        ref={ref}
+        style={{ width: `${inputWidth}ch` }}
         autoComplete="off"
+        onChange={e => {
+          setLength(e.target.value.length)
+          onChange?.(e)
+        }}
         {...props}
         className={clsx(
           className,
           error && "underline decoration-wavy decoration-red-500",
         )}
-        onMouseEnter={() => error && setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onTouchStart={() => error && setHovered(true)}
-        onTouchEnd={() => setHovered(false)}
       />
-      {hovered && error && (
-        <span className="absolute bottom-full left-0 z-50 mb-1 whitespace-nowrap rounded border border-red-500/30 bg-zinc-900 px-2 py-1 font-mono text-xs text-red-400 shadow-lg dark:bg-zinc-950">
-          {error}
-        </span>
-      )}
-    </span>
+      {error && <span className="text-red-500">← {error}</span>}
+    </div>
   )
-}
+})
 
 export function JobForm(props: JobFormProps) {
   const isNew = props.jobId == null
@@ -313,7 +328,7 @@ export function JobForm(props: JobFormProps) {
 
         <div className="flex items-baseline gap-2">
           <span className="shrink-0 text-zinc-500">desc:</span>
-          <input
+          <FormInput
             type="text"
             {...register("description")}
             className={clsx(termInputCls, "text-zinc-600 dark:text-zinc-400")}
@@ -339,7 +354,10 @@ export function JobForm(props: JobFormProps) {
             type="text"
             {...register("endpoint", { validate: zv(schema.shape.endpoint) })}
             error={errors.endpoint?.message}
-            className={clsx(termInputCls, "grow text-blue-600 dark:text-blue-400")}
+            className={clsx(
+              termInputCls,
+              "grow text-blue-600 dark:text-blue-400",
+            )}
           />
         </div>
 
@@ -363,7 +381,7 @@ export function JobForm(props: JobFormProps) {
               },
             )}
           />
-          {props.isActive ? (
+          {props.isActive || isNew ? (
             <CronComment expr={cronExpression} />
           ) : (
             <span className="text-zinc-600"># Paused</span>
