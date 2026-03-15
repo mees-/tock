@@ -1,9 +1,23 @@
-import { boolean, integer, jsonb, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core"
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core"
 
 export const USER_ROLES = ["admin", "member"] as const
 export const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const
 export const JOB_RUN_STATUSES = ["success", "failure", "timeout"] as const
-export const SUBSCRIPTION_STATUSES = ["active", "canceled", "past_due", "incomplete"] as const
+export const SUBSCRIPTION_STATUSES = [
+  "active",
+  "canceled",
+  "past_due",
+  "incomplete",
+] as const
 export const SUBSCRIPTION_TIERS = ["free", "pro"] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
@@ -20,7 +34,9 @@ export const users = pgTable("users", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   stripeCustomerId: text().unique(),
   subscriptionStatus: text({ enum: SUBSCRIPTION_STATUSES }),
-  subscriptionTier: text({ enum: SUBSCRIPTION_TIERS }).notNull().default("free"),
+  subscriptionTier: text({ enum: SUBSCRIPTION_TIERS })
+    .notNull()
+    .default("free"),
 })
 
 export const jobs = pgTable("jobs", {
@@ -35,7 +51,6 @@ export const jobs = pgTable("jobs", {
   headers: jsonb().$type<Record<string, string>>().notNull().default({}),
   body: text(),
   cronExpression: varchar({ length: 128 }).notNull(),
-  timezone: varchar({ length: 64 }).notNull().default("UTC"),
   isActive: boolean().notNull().default(true),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true })

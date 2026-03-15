@@ -19,7 +19,6 @@ const JobDetailQuery = graphql(`
       headers
       body
       cronExpression
-      timezone
       isActive
       status
       runs(amount: 50) {
@@ -62,7 +61,6 @@ const UpdateJobMutation = graphql(`
       headers
       body
       cronExpression
-      timezone
     }
   }
 `)
@@ -75,7 +73,6 @@ function toFormValues(job: {
   headers: string
   body?: string | null
   cronExpression: string
-  timezone: string
 }): JobFormValues {
   const parsed = JSON.parse(job.headers) as Record<string, string>
   return {
@@ -153,7 +150,6 @@ export default function JobDetailPage() {
         headers: serializeHeaders(values.headers),
         body: values.body,
         cronExpression: values.cronExpression,
-        timezone: null,
       },
     })
 

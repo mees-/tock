@@ -23,7 +23,6 @@ export const JobRef = builder.objectRef<DbJob>("Job").implement({
     }),
     body: t.exposeString("body", { nullable: true }),
     cronExpression: t.exposeString("cronExpression"),
-    timezone: t.exposeString("timezone"),
     isActive: t.exposeBoolean("isActive"),
     status: t.field({
       type: "String",

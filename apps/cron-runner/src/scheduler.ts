@@ -103,10 +103,8 @@ async function executeJob(jobId: number) {
 }
 
 function startJob(job: DbJob) {
-  const cron = new Cron(
-    job.cronExpression,
-    { timezone: job.timezone, protect: true },
-    () => executeJob(job.id),
+  const cron = new Cron(job.cronExpression, { protect: true }, () =>
+    executeJob(job.id),
   )
   cronMap.set(job.id, { cron, updatedAt: job.updatedAt.toISOString() })
   logger.debug(

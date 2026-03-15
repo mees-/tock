@@ -263,7 +263,6 @@ builder.mutationField("updateJob", t =>
       headers: t.input.string({ required: false }),
       body: t.input.string({ required: false }),
       cronExpression: t.input.string({ required: false }),
-      timezone: t.input.string({ required: false }),
     },
     resolve: async (_root, { input }, ctx) => {
       const user = ctx.requireAuth()
