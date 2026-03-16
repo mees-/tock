@@ -1,5 +1,6 @@
 [build]
 builder = "RAILPACK"
+buildCommand = "pnpm -F web build"
 watchPatterns = ["apps/web/**"]
 
 [deploy]
