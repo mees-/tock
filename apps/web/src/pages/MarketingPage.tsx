@@ -128,8 +128,7 @@ export default function MarketingPage() {
 
           {/* Sub-copy */}
           <p className="mb-10 text-lg leading-relaxed text-zinc-400 md:text-xl">
-            Tock fires HTTP requests on a schedule. Self-hosted, observable,
-            zero-daemon.
+            Tock fires HTTP requests on a schedule. Observable, zero-daemon.
           </p>
 
           {/* CTAs */}
@@ -265,7 +264,6 @@ export default function MarketingPage() {
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {[
-                    "Self-hosted",
                     "Any HTTP endpoint",
                     "Full response logs",
                     "Open source",
@@ -374,7 +372,7 @@ export default function MarketingPage() {
               {/* Self-hosted */}
               <div className="flex flex-col rounded-xl border border-zinc-200 p-7">
                 <p className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
-                  Self-hosted
+                  Free
                 </p>
                 <p className="mt-3 text-4xl font-extrabold text-zinc-900">
                   Free
@@ -461,7 +459,7 @@ export default function MarketingPage() {
           Ready to replace your cron?
         </h2>
         <p className="mb-8 text-emerald-100">
-          Self-host in minutes. No cloud accounts, no vendor lock-in.
+          Schedule HTTP requests. Inspect every response.
         </p>
         <Link
           href="/login"
