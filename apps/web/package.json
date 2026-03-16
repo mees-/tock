@@ -42,8 +42,10 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
+    "dotenv": "^17.3.1",
     "tailwindcss": "^4.2.1",
     "typescript": "catalog:",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vite-plugin-sitemap": "^0.8.2"
   }
 }
