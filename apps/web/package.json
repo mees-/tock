@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "gql-tada": "gql-tada generate-output",
-    "start": "serve -s dist -p $PORT",
+    "start": "serve -s dist -p $PORT -c ../serve.json",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
