@@ -104,6 +104,9 @@ export default function DashboardPage() {
           >
             <Plus size={16} />
             New job
+            <kbd className="ml-1 rounded bg-emerald-700/60 px-1.5 py-0.5 text-[10px] font-mono leading-none text-emerald-100">
+              N
+            </kbd>
           </Link>
         )}
       </div>

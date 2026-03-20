@@ -3,12 +3,19 @@ import { Clock, LogOut, CircleUserRound } from "lucide-react"
 import { useAuthStore } from "@/lib/auth/auth-store"
 import { PropsWithChildren } from "react"
 import { usePostHog } from "posthog-js/react"
+import { useHotkeys } from "react-hotkeys-hook"
 
 export default function Layout({ children }: PropsWithChildren) {
   const user = useAuthStore(s => s.user)
   const clearAuth = useAuthStore(s => s.clearAuth)
   const posthog = usePostHog()
-  const [location] = useLocation()
+  const [location, navigate] = useLocation()
+
+  useHotkeys("n", () => navigate("/jobs/new"), {
+    enabled: location !== "/jobs/new",
+    enableOnFormTags: false,
+    enableOnContentEditable: false,
+  })
 
   function logout() {
     posthog.capture("user_logged_out")
