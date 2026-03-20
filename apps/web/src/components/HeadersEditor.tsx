@@ -101,7 +101,7 @@ export function HeadersEditor({
 
   function updateLine(index: number, raw: string) {
     const next = rawLines.map((r, i) => (i === index ? raw : r))
-    setRawLines(next)
+    changeRawLines(next)
   }
 
   function handleKeyDown(
