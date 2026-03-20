@@ -88,6 +88,7 @@ export function HeadersEditor({
     headers.length > 0 ? headers.map(toRaw) : [],
   )
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
+  const containerRef = useRef<HTMLDivElement>(null)
   const [shouldFocusLineIndex, setShouldFocusLineIndex] = useState<
     number | null
   >(null)
@@ -184,8 +185,15 @@ export function HeadersEditor({
     "relative w-full bg-transparent text-transparent caret-emerald-400 font-mono text-sm",
   )
 
+  function handleContainerBlur(e: React.FocusEvent<HTMLDivElement>) {
+    if (containerRef.current?.contains(e.relatedTarget as Node)) return
+    if (rawLines.every(r => r === "")) {
+      changeRawLines([])
+    }
+  }
+
   return (
-    <div>
+    <div ref={containerRef} onBlur={handleContainerBlur}>
       <div
         className="flex items-center gap-2 cursor-text"
         onClick={enterHeaders}
