@@ -20,9 +20,8 @@ packages/
 pnpm dev                                       # Start all services concurrently
 pnpm typecheck                                 # Typecheck all apps/packages
 docker-compose up -d                           # Start local Postgres
-pnpm db:push                                   # Push schema changes to DB
-pnpm db:studio                                 # Open Drizzle Studio
-pnpm generate-schema                           # Regenerate schema.graphql + gql-tada types
+pnpm --filter database push-dev               # Push schema changes to DB
+pnpm --filter database studio                 # Open Drizzle Studio
 ```
 
 ## Code guidelines
@@ -67,7 +66,7 @@ Uses Drizzle ORM with `postgres.js` for PostgreSQL.
 **Never generate drizzle migrations directly.** Always use:
 
 ```bash
-pnpm --filter database db:dev-push
+pnpm --filter database push-dev
 ```
 
 This pushes schema changes directly to the local development database.
