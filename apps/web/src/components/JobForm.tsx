@@ -156,7 +156,12 @@ function FormActionHint({
   hasErrors: boolean
 }) {
   const isTouchScreen = useMediaQuery("(hover: none)")
-  useHotkeys(`mod-Enter`, handleSubmit)
+  useHotkeys(`mod-Enter`, () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    handleSubmit()
+  })
   const isMacOs = globalThis.navigator.platform.startsWith("Mac")
 
   if (hasErrors) {
