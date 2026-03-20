@@ -10,10 +10,10 @@ import clsx from "clsx"
 import cronstrue from "cronstrue"
 import { Cron } from "croner"
 import { DateTime } from "luxon"
-import { Pause, Play, Trash2, ChevronRight } from "lucide-react"
+import { Pause, Play, Trash2 } from "lucide-react"
 import { termInputCls } from "@/lib/styles"
 import { HeadersEditor } from "./HeadersEditor"
-import type { Header } from "./HeadersEditor"
+import type { Header, HeadersEditorHandle } from "./HeadersEditor"
 import { useMediaQuery } from "usehooks-ts"
 import { useHotkeys } from "react-hotkeys-hook"
 import { z } from "zod"
@@ -199,17 +199,18 @@ function FormInput({
   error,
   className,
   onChange,
+  onKeyDown,
   ref: forwardedRef,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & {
   error?: string
   ref?: React.Ref<HTMLInputElement>
 }) {
-  const [length, setLength] = useState(0)
+  const innerRef = useRef<HTMLInputElement | null>(null)
 
   const ref = useCallback(
     (el: HTMLInputElement | null) => {
-      if (el) setLength(el.value.length)
+      innerRef.current = el
       if (typeof forwardedRef === "function") forwardedRef(el)
       else if (forwardedRef != null)
         (
@@ -219,25 +220,23 @@ function FormInput({
     [forwardedRef],
   )
 
-  const inputWidth = length === 0 ? 10 : length + 5
-
   return (
-    <div className="flex justify-items-start">
+    <div className="flex items-baseline min-w-0">
       <input
         ref={ref}
-        style={{ width: `${inputWidth}ch` }}
         autoComplete="off"
         onChange={e => {
-          setLength(e.target.value.length)
           onChange?.(e)
         }}
+        onKeyDown={onKeyDown}
         {...props}
         className={clsx(
           className,
+          "min-w-[10ch]",
           error && "underline decoration-wavy decoration-red-500",
         )}
       />
-      {error && <span className="text-red-500">← {error}</span>}
+      {error && <span className="text-red-500 shrink-0">← {error}</span>}
     </div>
   )
 }
@@ -276,6 +275,15 @@ function ConfigLine({
   )
 }
 
+/** Field index constants for navigation */
+const FIELD_NAME = 0
+const FIELD_DESC = 1
+const FIELD_METHOD = 2
+const FIELD_ENDPOINT = 3
+const FIELD_SCHEDULE = 4
+const FIELD_HEADERS = 5
+const FIELD_BODY = 6
+
 export function JobForm(props: JobFormProps) {
   const isNew = props.jobId == null
   const [error, setError] = useState<string | null>(null)
@@ -302,11 +310,36 @@ export function JobForm(props: JobFormProps) {
   const submitting = isSubmitting
   const hasErrors = !isValid && isDirty
 
-  const [headersExpanded, setHeadersExpanded] = useState(
-    () => (props.initialValues?.headers ?? []).length > 0,
-  )
-  const [bodyExpanded, setBodyExpanded] = useState(
-    () => props.initialValues?.body != null,
+  // Refs for all navigable fields
+  const fieldRefs = useRef<
+    Array<HTMLInputElement | HTMLTextAreaElement | null>
+  >([])
+  const headersEditorRef = useRef<HeadersEditorHandle | null>(null)
+
+  const focusField = useCallback((index: number) => {
+    if (index === FIELD_HEADERS) {
+      headersEditorRef.current?.enter()
+    } else if (index === FIELD_BODY) {
+      fieldRefs.current[FIELD_BODY]?.focus()
+    } else {
+      fieldRefs.current[index]?.focus()
+    }
+  }, [])
+
+  const makeFieldKeyHandler = useCallback(
+    (fieldIndex: number) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        focusField(fieldIndex + 1)
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault()
+        focusField(fieldIndex + 1)
+      } else if (e.key === "ArrowUp" && fieldIndex > 0) {
+        e.preventDefault()
+        focusField(fieldIndex - 1)
+      }
+    },
+    [focusField],
   )
 
   const handleSubmit = rhfHandleSubmit(async values => {
@@ -358,12 +391,17 @@ export function JobForm(props: JobFormProps) {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
+      {/* Body — scrollable like a code editor */}
+      <div className="overflow-auto px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
         <ConfigLine label="name:">
           <FormInput
             type="text"
             {...register("name", { validate: zv(schema.shape.name) })}
+            ref={el => {
+              fieldRefs.current[FIELD_NAME] = el
+              register("name").ref(el)
+            }}
+            onKeyDown={makeFieldKeyHandler(FIELD_NAME)}
             error={errors.name?.message}
             className={clsx(termInputCls, "text-zinc-900 dark:text-white")}
           />
@@ -373,6 +411,11 @@ export function JobForm(props: JobFormProps) {
           <FormInput
             type="text"
             {...register("description")}
+            ref={el => {
+              fieldRefs.current[FIELD_DESC] = el
+              register("description").ref(el)
+            }}
+            onKeyDown={makeFieldKeyHandler(FIELD_DESC)}
             className={clsx(termInputCls, "text-zinc-600 dark:text-zinc-400")}
           />
         </ConfigLine>
@@ -384,6 +427,11 @@ export function JobForm(props: JobFormProps) {
               setValueAs: (v: string) => v.toUpperCase(),
               validate: zv(schema.shape.method),
             })}
+            ref={el => {
+              fieldRefs.current[FIELD_METHOD] = el
+              register("method").ref(el)
+            }}
+            onKeyDown={makeFieldKeyHandler(FIELD_METHOD)}
             error={errors.method?.message}
             className={clsx(termInputCls, methodColor(method), "w-28")}
           />
@@ -393,6 +441,11 @@ export function JobForm(props: JobFormProps) {
           <FormInput
             type="text"
             {...register("endpoint", { validate: zv(schema.shape.endpoint) })}
+            ref={el => {
+              fieldRefs.current[FIELD_ENDPOINT] = el
+              register("endpoint").ref(el)
+            }}
+            onKeyDown={makeFieldKeyHandler(FIELD_ENDPOINT)}
             error={errors.endpoint?.message}
             className={clsx(
               termInputCls,
@@ -407,6 +460,11 @@ export function JobForm(props: JobFormProps) {
             {...register("cronExpression", {
               validate: zv(schema.shape.cronExpression),
             })}
+            ref={el => {
+              fieldRefs.current[FIELD_SCHEDULE] = el
+              register("cronExpression").ref(el)
+            }}
+            onKeyDown={makeFieldKeyHandler(FIELD_SCHEDULE)}
             error={errors.cronExpression?.message}
             style={{
               width: `${Math.max(cronExpression.length, 1)}ch`,
@@ -427,102 +485,65 @@ export function JobForm(props: JobFormProps) {
           )}
         </ConfigLine>
 
-        {/* Headers section */}
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => setHeadersExpanded(v => !v)}
-            className="flex cursor-pointer items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
-          >
-            <ChevronRight
-              size={14}
-              className={clsx(
-                "transition-transform",
-                headersExpanded && "rotate-90",
-              )}
+        {/* Headers — inline, always visible */}
+        <Controller
+          control={control}
+          name="headers"
+          render={({ field }) => (
+            <HeadersEditor
+              headers={field.value}
+              onChange={field.onChange}
+              ref={headersEditorRef}
+              onExitDown={() => focusField(FIELD_BODY)}
+              onExitUp={() => focusField(FIELD_SCHEDULE)}
             />
-            Headers
-          </button>
-          {headersExpanded && (
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 mt-1 dark:border-zinc-700/60 dark:bg-zinc-800/30">
-              <Controller
-                control={control}
-                name="headers"
-                render={({ field }) => (
-                  <HeadersEditor
-                    headers={field.value}
-                    onChange={field.onChange}
-                  />
-                )}
-              />
+          )}
+        />
+
+        {/* Body — inline, always visible */}
+        <Controller
+          control={control}
+          name="body"
+          render={({ field }) => (
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 cursor-default text-zinc-500 leading-relaxed">
+                body:
+              </span>
+              <div className="flex-1 min-w-0">
+                <textarea
+                  ref={el => {
+                    fieldRefs.current[FIELD_BODY] = el
+                  }}
+                  value={field.value ?? ""}
+                  onChange={e => {
+                    const val = e.target.value
+                    field.onChange(val === "" ? null : val)
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === "ArrowUp") {
+                      const el = e.currentTarget
+                      // If cursor is on the first line, exit upward
+                      if (el.selectionStart != null) {
+                        const textBefore = el.value.slice(0, el.selectionStart)
+                        if (!textBefore.includes("\n")) {
+                          e.preventDefault()
+                          focusField(FIELD_HEADERS)
+                        }
+                      }
+                    }
+                  }}
+                  rows={Math.max(1, (field.value ?? "").split("\n").length)}
+                  placeholder='{"key": "value"}'
+                  className={clsx(
+                    termInputCls,
+                    "w-full text-zinc-700 dark:text-zinc-300 resize-none leading-relaxed",
+                  )}
+                  spellCheck={false}
+                />
+              </div>
             </div>
           )}
-        </div>
-
-        {/* Body section */}
-        <div className="mt-2">
-          <Controller
-            control={control}
-            name="body"
-            render={({ field }) => (
-              <>
-                {field.value == null ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      field.onChange("")
-                      setBodyExpanded(true)
-                    }}
-                    className="cursor-pointer text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
-                  >
-                    + add body
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setBodyExpanded(v => !v)}
-                      className="flex cursor-pointer items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors disabled:cursor-default"
-                    >
-                      <ChevronRight
-                        size={14}
-                        className={clsx(
-                          "transition-transform",
-                          bodyExpanded && "rotate-90",
-                        )}
-                      />
-                      Body
-                    </button>
-                    {bodyExpanded && (
-                      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 mt-1 dark:border-zinc-700/60 dark:bg-zinc-800/30">
-                        <textarea
-                          value={field.value}
-                          onChange={e => field.onChange(e.target.value)}
-                          rows={4}
-                          placeholder='{"key": "value"}'
-                          className={clsx(
-                            termInputCls,
-                            "text-zinc-700 dark:text-zinc-300 resize-none",
-                          )}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            field.onChange(null)
-                            setBodyExpanded(false)
-                          }}
-                          className="mt-1 cursor-pointer text-xs text-red-500 transition-colors hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          − remove body
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          />
-        </div>
+        />
 
         {error != null && (
           <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 mt-3 dark:bg-red-900/30 dark:text-red-400">

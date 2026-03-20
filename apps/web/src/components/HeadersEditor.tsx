@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import httpHeaderValidation from "http-headers-validation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useImperativeHandle, useRef, useState } from "react"
 import { termInputCls } from "@/lib/styles"
 
 export type Header = { key: string; value: string }
@@ -69,16 +69,24 @@ function HeaderOverlay({ raw }: { raw: string }) {
   )
 }
 
+export type HeadersEditorHandle = { enter: () => void }
+
 export function HeadersEditor({
   headers,
   onChange,
+  onExitDown,
+  onExitUp,
+  ref,
 }: {
   headers: Header[]
   onChange: (headers: Header[]) => void
+  onExitDown?: () => void
+  onExitUp?: () => void
+  ref?: React.Ref<HeadersEditorHandle>
 }) {
-  // Raw strings are the source of truth for the inputs.
-  // Parsed values are only derived for the overlay and for calling onChange.
-  const [rawLines, setRawLines] = useState<string[]>(() => headers.map(toRaw))
+  const [rawLines, setRawLines] = useState<string[]>(() =>
+    headers.length > 0 ? headers.map(toRaw) : [],
+  )
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
   const [shouldFocusLineIndex, setShouldFocusLineIndex] = useState<
     number | null
@@ -108,31 +116,65 @@ export function HeadersEditor({
     index: number,
     e: React.KeyboardEvent<HTMLInputElement>,
   ) {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
       e.preventDefault()
-      if (index >= rawLines.length - 1) {
-        const newRawLines = [...rawLines, ""]
-        changeRawLines(newRawLines)
+      // If current line is empty, exit downward
+      if (rawLines[index] === "") {
+        // Remove empty trailing line and exit
+        if (rawLines.length === 1) {
+          changeRawLines([])
+        } else {
+          changeRawLines(rawLines.filter((_, i) => i !== index))
+        }
+        onExitDown?.()
+        return
       }
-
+      // Otherwise create a new line below
+      if (index >= rawLines.length - 1) {
+        changeRawLines([...rawLines, ""])
+      }
       setShouldFocusLineIndex(index + 1)
     } else if (
       e.key === "Backspace" &&
       rawLines[index] === "" &&
-      rawLines.length > 1
+      rawLines.length > 0
     ) {
       e.preventDefault()
-      const next = rawLines.filter((_, i) => i !== index)
-      changeRawLines(next)
+      if (rawLines.length === 1) {
+        changeRawLines([])
+        onExitUp?.()
+      } else {
+        changeRawLines(rawLines.filter((_, i) => i !== index))
+        setShouldFocusLineIndex(Math.max(0, index - 1))
+      }
+    } else if (e.key === "ArrowUp" && index === 0) {
+      e.preventDefault()
+      onExitUp?.()
+    } else if (e.key === "ArrowDown") {
+      if (index >= rawLines.length - 1) {
+        e.preventDefault()
+        onExitDown?.()
+      } else {
+        e.preventDefault()
+        setShouldFocusLineIndex(index + 1)
+      }
+    } else if (e.key === "ArrowUp" && index > 0) {
+      e.preventDefault()
       setShouldFocusLineIndex(index - 1)
     }
   }
 
-  function addRow() {
-    const next = [...rawLines, ""]
-    changeRawLines(next)
-    setShouldFocusLineIndex(next.length - 1)
+  /** Called when the label area is clicked to enter the headers section */
+  function enterHeaders() {
+    if (rawLines.length === 0) {
+      changeRawLines([""])
+      setShouldFocusLineIndex(0)
+    } else {
+      inputRefs.current[0]?.focus()
+    }
   }
+
+  useImperativeHandle(ref, () => ({ enter: enterHeaders }), [rawLines.length])
 
   const overlayBaseCls =
     "pointer-events-none absolute inset-0 flex items-center font-mono text-sm whitespace-pre px-0 py-0"
@@ -144,48 +186,47 @@ export function HeadersEditor({
 
   return (
     <div>
-      <div className="space-y-1">
-        {rawLines.map((raw, i) => {
-          const firstEmpty = rawLines.findIndex(r => r === "")
-          const showPlaceholder = raw === "" && i === firstEmpty
-          return (
-            <div key={i} className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <div className={overlayBaseCls} aria-hidden>
-                  {showPlaceholder ? (
-                    <span className="text-zinc-600">
-                      {HEADER_PLACEHOLDERS[i % HEADER_PLACEHOLDERS.length]}
-                    </span>
-                  ) : (
-                    <HeaderOverlay raw={raw} />
-                  )}
-                </div>
-                <input
-                  ref={el => {
-                    inputRefs.current[i] = el
-                  }}
-                  type="text"
-                  list="header-names-edit"
-                  value={raw}
-                  onChange={e => updateLine(i, e.target.value)}
-                  onKeyDown={e => handleKeyDown(i, e)}
-                  className={inputBaseCls}
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-              </div>
-            </div>
-          )
-        })}
-
-        <button
-          type="button"
-          onClick={addRow}
-          className="cursor-pointer text-xs text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-500 dark:hover:text-emerald-400"
-        >
-          + add header
-        </button>
+      <div
+        className="flex items-center gap-2 cursor-text"
+        onClick={enterHeaders}
+      >
+        <span className="shrink-0 cursor-default text-zinc-500">headers:</span>
+        {rawLines.length === 0 && (
+          <span className="text-zinc-600 text-sm font-mono italic">(none)</span>
+        )}
       </div>
+      {rawLines.map((raw, i) => {
+        const firstEmpty = rawLines.findIndex(r => r === "")
+        const showPlaceholder = raw === "" && i === firstEmpty
+        return (
+          <div key={i} className="flex items-center">
+            <div className="relative flex-1 min-w-0">
+              <div className={overlayBaseCls} aria-hidden>
+                {showPlaceholder ? (
+                  <span className="text-zinc-600">
+                    {HEADER_PLACEHOLDERS[i % HEADER_PLACEHOLDERS.length]}
+                  </span>
+                ) : (
+                  <HeaderOverlay raw={raw} />
+                )}
+              </div>
+              <input
+                ref={el => {
+                  inputRefs.current[i] = el
+                }}
+                type="text"
+                list="header-names-edit"
+                value={raw}
+                onChange={e => updateLine(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(i, e)}
+                className={inputBaseCls}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
