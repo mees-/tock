@@ -218,7 +218,7 @@ builder.mutationField("createJob", t =>
     resolve: async (_root, { input }, ctx) => {
       const user = ctx.requireAuth()
 
-      if (user.subscriptionTier === "free") {
+      if (!env.COMMUNITY_EDITION && user.subscriptionTier === "free") {
         const [{ value: jobCount }] = await ctx.db
           .select({ value: count() })
           .from(jobs)

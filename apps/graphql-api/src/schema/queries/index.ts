@@ -66,10 +66,19 @@ builder.queryField("job", t =>
   }),
 )
 
+builder.queryField("communityEdition", t =>
+  t.boolean({
+    resolve: () => env.COMMUNITY_EDITION,
+  }),
+)
+
 builder.queryField("subscriptionPrices", t =>
   t.field({
     type: PricingRef,
     nullable: true,
-    resolve: () => ({}), // resolve sub-fields independently
+    resolve: () => {
+      if (env.COMMUNITY_EDITION) return null
+      return {}
+    },
   }),
 )

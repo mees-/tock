@@ -2,6 +2,7 @@ import { Cron } from "croner"
 import { db, jobs, jobRuns, users } from "database"
 import type { DbJob, JobRunStatus } from "database"
 import { eq, asc } from "drizzle-orm"
+import { env } from "./env"
 import { logger } from "./logger"
 
 const MAX_RESPONSE_BODY_LENGTH = 10_000
@@ -125,7 +126,7 @@ export async function syncJobs() {
   const seenFreeUsers = new Set<number>()
   const activeJobs: DbJob[] = []
   for (const { job, subscriptionTier } of rows) {
-    if (subscriptionTier === "pro") {
+    if (env.COMMUNITY_EDITION || subscriptionTier === "pro") {
       activeJobs.push(job)
     } else if (!seenFreeUsers.has(job.userId)) {
       seenFreeUsers.add(job.userId)

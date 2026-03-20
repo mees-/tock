@@ -4,6 +4,7 @@ import { jobs, jobRuns } from "database"
 import { eq, and, gte, count } from "drizzle-orm"
 import { StatsRef } from "./stats"
 import { SubscriptionRef, FREE_JOB_LIMIT } from "./subscription"
+import { env } from "../../env"
 
 export const UserRef = builder.objectRef<DbUser>("User").implement({
   fields: t => ({
@@ -89,9 +90,14 @@ export const UserRef = builder.objectRef<DbUser>("User").implement({
           .from(jobs)
           .where(eq(jobs.userId, user.id))
         return {
-          tier: user.subscriptionTier,
-          status: user.subscriptionStatus ?? null,
-          jobLimit: user.subscriptionTier === "free" ? FREE_JOB_LIMIT : null,
+          tier: env.COMMUNITY_EDITION ? "pro" : user.subscriptionTier,
+          status: env.COMMUNITY_EDITION
+            ? null
+            : (user.subscriptionStatus ?? null),
+          jobLimit:
+            !env.COMMUNITY_EDITION && user.subscriptionTier === "free"
+              ? FREE_JOB_LIMIT
+              : null,
           jobCount,
         }
       },

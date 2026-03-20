@@ -1,9 +1,19 @@
 import { Link, useRoute } from "wouter"
 import { PropsWithChildren } from "react"
+import { useQuery } from "urql"
+import { graphql } from "@/lib/graphql/graphql"
+
+const CommunityEditionQuery = graphql(`
+  query CommunityEdition {
+    communityEdition
+  }
+`)
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
   const [onUser] = useRoute("/settings/user")
   const [onBilling] = useRoute("/settings/billing")
+  const [{ data }] = useQuery({ query: CommunityEditionQuery })
+  const isCommunityEdition = data?.communityEdition ?? false
 
   return (
     <div>
@@ -24,16 +34,18 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
         >
           Account
         </Link>
-        <Link
-          href="/settings/billing"
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-            onBilling
-              ? "border-emerald-500 text-zinc-900 dark:text-white"
-              : "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-          }`}
-        >
-          Billing
-        </Link>
+        {!isCommunityEdition && (
+          <Link
+            href="/settings/billing"
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              onBilling
+                ? "border-emerald-500 text-zinc-900 dark:text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+          >
+            Billing
+          </Link>
+        )}
       </div>
 
       {children}
