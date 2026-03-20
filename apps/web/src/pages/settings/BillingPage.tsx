@@ -44,8 +44,8 @@ const CreateBillingPortalSessionMutation = graphql(`
 
 export default function BillingPage() {
   const [{ data, fetching, error }] = useQuery({ query: BillingQuery })
-  const [, createCheckoutSession] = useMutation(CreateCheckoutSessionMutation)
-  const [, createBillingPortalSession] = useMutation(
+  const [{ fetching: checkoutFetching }, createCheckoutSession] = useMutation(CreateCheckoutSessionMutation)
+  const [{ fetching: portalFetching }, createBillingPortalSession] = useMutation(
     CreateBillingPortalSessionMutation,
   )
 
@@ -88,9 +88,10 @@ export default function BillingPage() {
             </div>
             <button
               onClick={manageSubscription}
-              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              disabled={portalFetching}
+              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 cursor-pointer select-none disabled:opacity-50"
             >
-              Manage subscription
+              {portalFetching ? "Redirecting…" : "Manage subscription"}
             </button>
           </div>
         </div>
@@ -121,10 +122,10 @@ export default function BillingPage() {
               <ProPlanFeatures />
               <button
                 onClick={() => subscribe(prices?.monthly.id ?? "")}
-                disabled={prices == null}
-                className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                disabled={prices == null || checkoutFetching}
+                className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 cursor-pointer select-none"
               >
-                Subscribe
+                {checkoutFetching ? "Redirecting…" : "Subscribe"}
               </button>
             </div>
 
@@ -144,10 +145,10 @@ export default function BillingPage() {
               <ProPlanFeatures />
               <button
                 onClick={() => subscribe(prices?.yearly.id ?? "")}
-                disabled={prices == null}
-                className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                disabled={prices == null || checkoutFetching}
+                className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 cursor-pointer select-none"
               >
-                Subscribe
+                {checkoutFetching ? "Redirecting…" : "Subscribe"}
               </button>
             </div>
           </div>
