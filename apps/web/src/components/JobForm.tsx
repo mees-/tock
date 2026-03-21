@@ -156,12 +156,16 @@ function FormActionHint({
   hasErrors: boolean
 }) {
   const isTouchScreen = useMediaQuery("(hover: none)")
-  useHotkeys(`mod-Enter`, () => {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-    handleSubmit()
-  })
+  useHotkeys(
+    `mod-Enter`,
+    () => {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+      handleSubmit()
+    },
+    { enableOnFormTags: true },
+  )
   const isMacOs = globalThis.navigator.platform.startsWith("Mac")
 
   if (hasErrors) {
@@ -226,7 +230,7 @@ function FormInput({
   )
 
   return (
-    <div className="flex items-baseline min-w-0">
+    <div className="flex items-baseline min-w-0 grow">
       <input
         ref={ref}
         autoComplete="off"
