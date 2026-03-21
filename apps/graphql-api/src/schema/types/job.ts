@@ -1,8 +1,8 @@
 import { builder } from "../builder"
 import type { DbJob } from "database"
 import { jobRuns } from "database"
-import { eq, desc, and, sql } from "drizzle-orm"
-import { JobRunRef } from "./job-run"
+import { eq, desc, and, lt } from "drizzle-orm"
+import { JobRunConnectionRef } from "./job-run"
 
 const HEALTH_WINDOW = 100
 const FLAKY_THRESHOLD = 0.2
@@ -44,24 +44,38 @@ export const JobRef = builder.objectRef<DbJob>("Job").implement({
       },
     }),
     runs: t.field({
-      type: [JobRunRef],
+      type: JobRunConnectionRef,
       args: {
-        amount: t.arg.int({ defaultValue: 25, required: false }),
-        cursor: t.arg.id({ required: false }),
+        first: t.arg.int({ defaultValue: 25, required: false }),
+        after: t.arg.string({ required: false }),
       },
-      resolve: async (job, { amount, cursor }, ctx) => {
-        const cursorId = cursor ? parseInt(cursor) : null
-        return await ctx.db
+      resolve: async (job, { first, after }, ctx) => {
+        const limit = first ?? 25
+        const afterId = after != null ? parseInt(after) : null
+        const rows = await ctx.db
           .select()
           .from(jobRuns)
           .where(
             and(
               eq(jobRuns.jobId, job.id),
-              cursorId != null ? eq(jobRuns.id, cursorId) : sql`1 = 1`,
+              afterId != null ? lt(jobRuns.id, afterId) : undefined,
             ),
           )
-          .limit(amount ?? 25)
+          .limit(limit + 1)
           .orderBy(desc(jobRuns.triggeredAt))
+        const hasNextPage = rows.length > limit
+        const nodes = hasNextPage ? rows.slice(0, limit) : rows
+        return {
+          edges: nodes.map(node => ({
+            node,
+            cursor: String(node.id),
+          })),
+          pageInfo: {
+            hasNextPage,
+            endCursor:
+              nodes.length > 0 ? String(nodes[nodes.length - 1]!.id) : null,
+          },
+        }
       },
     }),
     createdAt: t.field({

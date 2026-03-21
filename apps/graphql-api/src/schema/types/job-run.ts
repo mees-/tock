@@ -24,15 +24,45 @@ export const JobRunRef = builder.objectRef<DbJobRun>("JobRun").implement({
   }),
 })
 
-export const JobRunConnectionRef = builder
-  .objectRef<{ runs: DbJobRun[]; total: number }>("JobRunConnection")
+const JobRunEdgeRef = builder
+  .objectRef<{ node: DbJobRun; cursor: string }>("JobRunEdge")
   .implement({
     fields: t => ({
-      runs: t.field({
-        type: [JobRunRef],
-        nullable: false,
-        resolve: c => c.runs,
+      node: t.field({
+        type: JobRunRef,
+        resolve: edge => edge.node,
       }),
-      total: t.exposeInt("total", { nullable: false }),
+      cursor: t.exposeString("cursor"),
+    }),
+  })
+
+const PageInfoRef = builder
+  .objectRef<{ hasNextPage: boolean; endCursor: string | null }>("PageInfo")
+  .implement({
+    fields: t => ({
+      hasNextPage: t.exposeBoolean("hasNextPage"),
+      endCursor: t.field({
+        type: "String",
+        nullable: true,
+        resolve: p => p.endCursor,
+      }),
+    }),
+  })
+
+export const JobRunConnectionRef = builder
+  .objectRef<{
+    edges: Array<{ node: DbJobRun; cursor: string }>
+    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+  }>("JobRunConnection")
+  .implement({
+    fields: t => ({
+      edges: t.field({
+        type: [JobRunEdgeRef],
+        resolve: c => c.edges,
+      }),
+      pageInfo: t.field({
+        type: PageInfoRef,
+        resolve: c => c.pageInfo,
+      }),
     }),
   })

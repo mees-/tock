@@ -191,7 +191,7 @@ export default function DashboardPage() {
                           </p>
                         )}
                       </td>
-                      <td className="max-w-[260px] truncate px-4 py-3 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                      <td className="max-w-65 truncate px-4 py-3 font-mono text-xs text-zinc-500 dark:text-zinc-400">
                         {job.method} {job.endpoint}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-zinc-500 dark:text-zinc-400">

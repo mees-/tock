@@ -21,16 +21,6 @@ const JobDetailQuery = graphql(`
       cronExpression
       isActive
       status
-      runs(amount: 50) {
-        id
-        triggeredAt
-        status
-        httpStatusCode
-        durationMs
-        responseBody
-        responseHeaders
-        errorMessage
-      }
     }
   }
 `)
@@ -117,7 +107,6 @@ export default function JobDetailPage() {
     return <p className="text-red-500 dark:text-red-400">Job not found</p>
 
   const { job } = data
-  const runs = job.runs
 
   async function handleToggle() {
     const result = await toggleJob({ id })
@@ -180,7 +169,7 @@ export default function JobDetailPage() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
           Run history
         </h2>
-        <RunsTable runs={runs} jobId={id} />
+        <RunsTable jobId={id} pollIntervalMs={intervalMs} />
       </div>
     </div>
   )
