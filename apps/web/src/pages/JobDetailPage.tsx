@@ -1,12 +1,18 @@
-import { useEffect } from "react"
-import { useParams, useLocation } from "wouter"
+import { useMemo } from "react"
+import { useParams, useLocation, useSearch } from "wouter"
 import { useQuery, useMutation } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
-import { smallestCronIntervalMs } from "@/lib/cronInterval"
+
 import RunsTable from "@/components/RunsTable"
+import RunsFilter from "@/components/RunsFilter"
 import { JobForm, serializeHeaders } from "@/components/JobForm"
 import type { JobFormValues } from "@/components/JobForm"
 import { usePostHog } from "posthog-js/react"
+import {
+  parseRunFilter,
+  serializeRunFilter,
+  type RunFilter,
+} from "@/lib/runFilter"
 
 const JobDetailQuery = graphql(`
   query JobDetail($id: Int!) {
@@ -78,9 +84,35 @@ function toFormValues(job: {
 
 export default function JobDetailPage() {
   const params = useParams<{ id: string }>()
-  const [, navigate] = useLocation()
+  const [location, navigate] = useLocation()
+  const search = useSearch()
   const id = Number(params.id)
   const posthog = usePostHog()
+
+  const activeFilter: RunFilter = useMemo(
+    () => parseRunFilter(search),
+    [search],
+  )
+
+  const resolvedStatuses = useMemo((): string[] | undefined => {
+    if (activeFilter.type === "all") return undefined
+    if (activeFilter.type === "status") return activeFilter.statuses
+  }, [activeFilter])
+
+  function handleFilterChange(filter: RunFilter) {
+    const qs = serializeRunFilter(filter)
+    const url = new URL(window.location.href)
+    const existingQs = url.searchParams
+    if (qs != null) {
+      qs.forEach((value, key) => existingQs.set(key, value))
+      url.search = existingQs.toString()
+      navigate(url.pathname + url.search)
+    } else {
+      existingQs.delete("filter")
+      url.search = existingQs.toString()
+      navigate(location.split("?")[0])
+    }
+  }
 
   const [{ data, fetching }, reexecuteQuery] = useQuery({
     query: JobDetailQuery,
@@ -90,17 +122,6 @@ export default function JobDetailPage() {
   const [, toggleJob] = useMutation(ToggleJobMutation)
   const [, deleteJob] = useMutation(DeleteJobMutation)
   const [, updateJob] = useMutation(UpdateJobMutation)
-
-  const cronExpression = data?.job?.cronExpression
-  const intervalMs =
-    cronExpression != null ? smallestCronIntervalMs([cronExpression]) : 60_000
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      reexecuteQuery({ requestPolicy: "network-only" })
-    }, intervalMs)
-    return () => clearInterval(timer)
-  }, [intervalMs, reexecuteQuery])
 
   if (fetching && data == null) return <p className="text-zinc-500">Loading…</p>
   if (data?.job == null)
@@ -169,7 +190,8 @@ export default function JobDetailPage() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">
           Run history
         </h2>
-        <RunsTable jobId={id} pollIntervalMs={intervalMs} />
+        <RunsFilter filter={activeFilter} onChange={handleFilterChange} />
+        <RunsTable jobId={id} statuses={resolvedStatuses} />
       </div>
     </div>
   )

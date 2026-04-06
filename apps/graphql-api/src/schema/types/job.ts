@@ -1,7 +1,7 @@
 import { builder } from "../builder"
 import type { DbJob } from "database"
 import { jobRuns } from "database"
-import { eq, desc, and, lt } from "drizzle-orm"
+import { eq, desc, and, lt, inArray } from "drizzle-orm"
 import { JobRunConnectionRef } from "./job-run"
 
 const HEALTH_WINDOW = 100
@@ -46,10 +46,11 @@ export const JobRef = builder.objectRef<DbJob>("Job").implement({
     runs: t.field({
       type: JobRunConnectionRef,
       args: {
-        first: t.arg.int({ defaultValue: 25, required: false }),
+        first: t.arg.int({ defaultValue: 50, required: false }),
         after: t.arg.string({ required: false }),
+        statuses: t.arg.stringList({ required: false }),
       },
-      resolve: async (job, { first, after }, ctx) => {
+      resolve: async (job, { first, after, statuses }, ctx) => {
         const limit = first ?? 25
         const afterId = after != null ? parseInt(after) : null
         const rows = await ctx.db
@@ -59,6 +60,12 @@ export const JobRef = builder.objectRef<DbJob>("Job").implement({
             and(
               eq(jobRuns.jobId, job.id),
               afterId != null ? lt(jobRuns.id, afterId) : undefined,
+              statuses != null && statuses.length > 0
+                ? inArray(
+                    jobRuns.status,
+                    statuses as ("success" | "failure" | "timeout")[],
+                  )
+                : undefined,
             ),
           )
           .limit(limit + 1)

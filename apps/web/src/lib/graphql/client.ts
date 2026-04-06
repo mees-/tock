@@ -22,6 +22,7 @@ type RefreshPayload = {
 export const client = new Client({
   url: env.GRAPHQL_ENDPOINT,
   requestPolicy: "cache-and-network",
+  preferGetMethod: "within-url-limit",
   exchanges: [
     cacheExchange,
     authExchange(async utils => {

@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react"
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useQuery } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
@@ -10,12 +17,17 @@ import StatusBadge from "./StatusBadge"
 import AnimatedNumber from "./AnimatedNumber"
 import { usePostHog } from "posthog-js/react"
 
-const PAGE_SIZE = 50
+const PAGE_SIZE = 100
 
 const JobRunsQuery = graphql(`
-  query JobRuns($jobId: Int!, $first: Int!, $after: String) {
+  query JobRuns(
+    $jobId: Int!
+    $first: Int!
+    $after: String
+    $statuses: [String!]
+  ) {
     job(id: $jobId) {
-      runs(first: $first, after: $after) {
+      runs(first: $first, after: $after, statuses: $statuses) {
         edges {
           cursor
           node {
@@ -38,7 +50,7 @@ const JobRunsQuery = graphql(`
   }
 `)
 
-interface Run {
+export interface Run {
   id: number
   triggeredAt: string
   status: string
@@ -210,10 +222,11 @@ function RunRow({
 
 export default function RunsTable({
   jobId,
-  pollIntervalMs,
+  statuses,
 }: {
   jobId: number
   pollIntervalMs?: number
+  statuses?: string[]
 }) {
   const [allRuns, setAllRuns] = useState<Run[]>([])
   const [endCursor, setEndCursor] = useState<string | null>(null)
@@ -222,14 +235,25 @@ export default function RunsTable({
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const parentRef = useRef<HTMLDivElement>(null)
 
+  // Stable key for current filter — reset pagination when statuses change
+  const statusesKey = useMemo(
+    () => (statuses != null ? statuses.slice().sort().join(",") : ""),
+    [statuses],
+  )
+  useEffect(() => {
+    setAllRuns([])
+    setEndCursor(null)
+    setHasNextPage(true)
+    setExpandedId(null)
+  }, [statusesKey])
+
   // Initial page fetch
-  const [{ data, fetching }, reexecuteQuery] = useQuery({
+  const [{ data, fetching }] = useQuery({
     query: JobRunsQuery,
-    variables: { jobId, first: PAGE_SIZE },
+    variables: { jobId, first: PAGE_SIZE, statuses: statuses ?? null },
     requestPolicy: "cache-and-network",
   })
 
-  // Sync initial data
   useEffect(() => {
     if (data?.job == null) return
     const connection = data.job.runs
@@ -244,17 +268,10 @@ export default function RunsTable({
       const beyondFirstPage = olderRuns.filter(r => r.id < lastFirstPageId)
       return [...runs, ...beyondFirstPage]
     })
+
     setEndCursor(connection.pageInfo.endCursor ?? null)
     setHasNextPage(connection.pageInfo.hasNextPage)
-  }, [data])
-
-  useEffect(() => {
-    if (pollIntervalMs == null || pollIntervalMs <= 0) return
-    const timer = setInterval(() => {
-      reexecuteQuery({ requestPolicy: "network-only" })
-    }, pollIntervalMs)
-    return () => clearInterval(timer)
-  }, [pollIntervalMs, reexecuteQuery])
+  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMore = useCallback(async () => {
     if (!hasNextPage || isLoadingMore || endCursor == null) return
@@ -268,6 +285,7 @@ export default function RunsTable({
             jobId,
             first: PAGE_SIZE,
             after: endCursor,
+            statuses: statuses ?? null,
           },
           {
             requestPolicy: "cache-first",
@@ -283,13 +301,13 @@ export default function RunsTable({
     } finally {
       setIsLoadingMore(false)
     }
-  }, [jobId, endCursor, hasNextPage, isLoadingMore])
+  }, [jobId, endCursor, hasNextPage, isLoadingMore, statuses])
 
   const virtualizer = useVirtualizer({
     count: allRuns.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
-    overscan: 10,
+    overscan: PAGE_SIZE / 5,
   })
 
   // Load more when scrolling near bottom
