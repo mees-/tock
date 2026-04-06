@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "dev:stripe-webhook-forward": "stripe listen --forward-to localhost:4001/stripe/webhook",
-    "start": "bun src/index.ts",
+    "start": "bun --no-env-file src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -1,8 +1,12 @@
 node_modules/
 dist/
 .env
+!packages/database/.env
 .DS_Store
 *.local
+!.env.local
+!**/.env.local
 schema.graphql
 src/lib/graphql/graphql-env.d.ts
 .worktrees/
+.envrc
