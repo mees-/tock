@@ -31,65 +31,57 @@ cd tock
 pnpm install
 ```
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# Edit .env — set JWT_SECRET to a random 32+ char string
-```
-
-### 3. Start Postgres
+### 2. Start Postgres
 
 ```bash
 docker-compose up -d
 ```
 
-### 4. Push database schema
-
-```bash
-pnpm db:push
-```
-
-### 5. Generate GraphQL types
-
-```bash
-pnpm generate-schema
-cd apps/web && pnpm gql-tada
-```
-
-### 6. Start all services
+### 3. Start all services
 
 ```bash
 pnpm dev
 ```
 
-- GraphQL API: `http://localhost:4000/graphql`
-- GraphiQL: `http://localhost:4000/graphql` (in development)
+- GraphQL API + GraphiQL: `http://localhost:4000/graphql`
 - Web UI: `http://localhost:5173`
 
 On first startup, visit `http://localhost:5173/setup` to create the admin
 account.
 
+> **Note:** The repo ships with `COMMUNITY_EDITION=true` in all `.env.local`
+> files, so Stripe is disabled and no additional setup is needed.
+
 ---
 
-## Scripts
+## Developing with Stripe
 
-| Command                | Description                             |
-| ---------------------- | --------------------------------------- |
-| `pnpm dev`             | Start all services concurrently         |
-| `pnpm build`           | Build all packages and apps             |
-| `pnpm typecheck`       | Typecheck all workspaces                |
-| `pnpm db:push`         | Push schema changes to Postgres         |
-| `pnpm db:studio`       | Open Drizzle Studio                     |
-| `pnpm generate-schema` | Regenerate `schema.graphql` from Pothos |
+To test billing locally, you'll need a [Stripe](https://stripe.com) account and
+the [Stripe CLI](https://stripe.com/docs/stripe-cli).
 
-## Environment variables
+Rather than editing the committed `.env.local` files, use a gitignored `.envrc`
+at the repo root via [direnv](https://direnv.net):
 
-| Variable                | Default    | Description                                       |
-| ----------------------- | ---------- | ------------------------------------------------- |
-| `DATABASE_URL`          | —          | **Required.** Postgres connection URL             |
-| `JWT_SECRET`            | —          | **Required.** Secret for signing JWTs (32+ chars) |
-| `COMMUNITY_EDITION`     | `false`    | `true` = single-user mode, no billing; `false` = open registration + Stripe billing |
-| `PORT`                  | `4000`     | GraphQL API port                                  |
-| `VITE_GRAPHQL_ENDPOINT` | `/graphql` | GraphQL endpoint for the web app                  |
-| `SYNC_INTERVAL_MS`      | `30000`    | Cron runner DB sync interval                      |
+```bash
+# .envrc (never committed — add your own values)
+export COMMUNITY_EDITION=false
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+export STRIPE_PRO_YEARLY_PRICE_ID=price_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+```bash
+# Allow direnv to load it
+direnv allow
+```
+
+Bun won't overwrite environment variables that are already set in the shell, so
+these values take precedence over the defaults in `.env.local` automatically —
+no file editing needed.
+
+To forward Stripe events to your local webhook handler:
+
+```bash
+stripe listen --forward-to localhost:4001/webhook
+```
