@@ -1,7 +1,13 @@
 [build]
 builder = "RAILPACK"
 buildCommand = "pnpm -F web build"
-watchPatterns = ["apps/web/**"]
+watchPatterns = [
+  "apps/web/**",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "tsconfig.base.json",
+]
 
 [deploy]
 startCommand = "pnpm -F web start"

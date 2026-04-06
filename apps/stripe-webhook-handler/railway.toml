@@ -1,6 +1,12 @@
 [build]
 builder = "RAILPACK"
-watchPatterns = ["apps/stripe-webhook-handler/**"]
+watchPatterns = [
+  "apps/stripe-webhook-handler/**",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "tsconfig.base.json",
+]
 buildCommand = "echo NO_BUILD"
 
 [deploy]

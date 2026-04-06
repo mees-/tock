@@ -4,6 +4,10 @@ watchPatterns = [
   "apps/graphql-api/**",
   "packages/database/**",
   "packages/auth/**",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "tsconfig.base.json",
 ]
 buildCommand = "echo NO_BUILD"
 
