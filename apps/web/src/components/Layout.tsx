@@ -1,15 +1,24 @@
 import { Link, useLocation } from "wouter"
-import { Clock, LogOut, CircleUserRound } from "lucide-react"
+import { Clock, LogOut, CircleUserRound, Megaphone } from "lucide-react"
 import { useAuthStore } from "@/lib/auth/auth-store"
-import { PropsWithChildren } from "react"
+import { PropsWithChildren, useEffect, useState } from "react"
 import { usePostHog } from "posthog-js/react"
 import { useHotkeys } from "react-hotkeys-hook"
+import { useAnnouncementStore } from "@/lib/announcement-store"
+import AnnouncementToast from "@/components/AnnouncementToast"
+import AnnouncementsOverview from "@/components/AnnouncementsOverview"
 
 export default function Layout({ children }: PropsWithChildren) {
   const user = useAuthStore(s => s.user)
   const clearAuth = useAuthStore(s => s.clearAuth)
   const posthog = usePostHog()
   const [location, navigate] = useLocation()
+  const initFirstVisitAt = useAnnouncementStore(s => s.initFirstVisitAt)
+  const [overviewOpen, setOverviewOpen] = useState(false)
+
+  useEffect(() => {
+    initFirstVisitAt()
+  }, [initFirstVisitAt])
 
   useHotkeys("n", () => navigate("/jobs/new"), {
     enabled: location !== "/jobs/new",
@@ -63,6 +72,18 @@ export default function Layout({ children }: PropsWithChildren) {
         </header>
       </div>
       <main className="mx-auto max-w-5xl px-8 py-8">{children}</main>
+      <button
+        onClick={() => setOverviewOpen(true)}
+        className="fixed bottom-4 left-4 z-40 cursor-pointer rounded-full p-2.5 text-zinc-500 shadow-sm border border-zinc-200 bg-white hover:bg-zinc-50 hover:text-zinc-900 transition-colors dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+        aria-label="What's new"
+      >
+        <Megaphone size={16} />
+      </button>
+      <AnnouncementToast onViewAll={() => setOverviewOpen(true)} />
+      <AnnouncementsOverview
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+      />
     </div>
   )
 }

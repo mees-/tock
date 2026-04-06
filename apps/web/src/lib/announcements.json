@@ -1,0 +1,14 @@
+[
+  {
+    "id": "job-run-status-filter",
+    "title": "Filter Job Runs by Status",
+    "description": "You can now filter job runs by status — success, failed, or timedout",
+    "publishedAt": "2026-04-11"
+  },
+  {
+    "id": "lazy-scroll-job-runs",
+    "title": "Lazy Scroll Job Runs",
+    "description": "Job runs are now loaded lazily as you scroll, so you can easily view all past job runs.",
+    "publishedAt": "2026-04-10"
+  }
+]

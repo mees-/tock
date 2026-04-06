@@ -1,4 +1,10 @@
 {
   "js/ts.tsdk.path": "node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "json.schemas": [
+    {
+      "fileMatch": ["apps/web/src/lib/announcements.json"],
+      "url": "./apps/web/src/lib/announcements.schema.json"
+    }
+  ]
 }
