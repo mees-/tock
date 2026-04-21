@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "urql"
 import { graphql } from "@/lib/graphql/graphql"
+import { DateTime } from "luxon"
 import ErrorState from "@/components/ErrorState"
 import SettingsLayout from "@/components/SettingsLayout"
 
@@ -11,6 +12,8 @@ const BillingQuery = graphql(`
         status
         jobLimit
         jobCount
+        isActive
+        gracePeriodEndsAt
       }
     }
     subscriptionPrices {
@@ -71,6 +74,36 @@ export default function BillingPage() {
       ) : fetching && data == null ? (
         <p className="text-zinc-500">Loading…</p>
       ) : subscription?.tier === "pro" ? (
+        <div className="space-y-4">
+          {subscription.status === "past_due" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              Your payment is past due. Pro access will be suspended on{" "}
+              {subscription.gracePeriodEndsAt != null
+                ? DateTime.fromISO(subscription.gracePeriodEndsAt).toLocaleString(DateTime.DATE_FULL)
+                : "soon"}
+              .{" "}
+              <button
+                onClick={manageSubscription}
+                className="underline underline-offset-2"
+              >
+                Manage subscription →
+              </button>
+            </div>
+          )}
+          {subscription.status === "incomplete" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              Your subscription setup is incomplete. Pro access will expire on{" "}
+              {subscription.gracePeriodEndsAt != null
+                ? DateTime.fromISO(subscription.gracePeriodEndsAt).toLocaleString(DateTime.DATE_FULL)
+                : "soon"}
+              .
+            </div>
+          )}
+          {subscription.status === "canceled" && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
+              Your subscription has been canceled. Pro access will be removed shortly.
+            </div>
+          )}
         <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex items-center justify-between">
             <div>
@@ -93,6 +126,7 @@ export default function BillingPage() {
               Manage subscription
             </button>
           </div>
+        </div>
         </div>
       ) : (
         <div className="space-y-6">

@@ -1,5 +1,5 @@
 import { Cron } from "croner"
-import { db, jobs, jobRuns, users } from "database"
+import { db, jobs, jobRuns, users, isProAccessActive } from "database"
 import type { DbJob, JobRunStatus } from "database"
 import { eq, asc } from "drizzle-orm"
 import { env } from "./env"
@@ -116,17 +116,24 @@ function startJob(job: DbJob) {
 
 export async function syncJobs() {
   const rows = await db
-    .select({ job: jobs, subscriptionTier: users.subscriptionTier })
+    .select({
+      job: jobs,
+      subscriptionStatus: users.subscriptionStatus,
+      subscriptionStatusUpdatedAt: users.subscriptionStatusUpdatedAt,
+    })
     .from(jobs)
     .innerJoin(users, eq(jobs.userId, users.id))
     .where(eq(jobs.isActive, true))
     .orderBy(asc(jobs.createdAt))
 
-  // Free-tier users may only run their single oldest active job
+  // Users without active pro access may only run their single oldest active job
   const seenFreeUsers = new Set<number>()
   const activeJobs: DbJob[] = []
-  for (const { job, subscriptionTier } of rows) {
-    if (env.COMMUNITY_EDITION || subscriptionTier === "pro") {
+  for (const { job, subscriptionStatus, subscriptionStatusUpdatedAt } of rows) {
+    const hasProAccess =
+      env.COMMUNITY_EDITION ||
+      isProAccessActive({ subscriptionStatus, subscriptionStatusUpdatedAt })
+    if (hasProAccess) {
       activeJobs.push(job)
     } else if (!seenFreeUsers.has(job.userId)) {
       seenFreeUsers.add(job.userId)
