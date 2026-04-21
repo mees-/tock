@@ -7,7 +7,6 @@ export {
   HTTP_METHODS,
   JOB_RUN_STATUSES,
   SUBSCRIPTION_STATUSES,
-  SUBSCRIPTION_TIERS,
 } from "./schema"
 export type {
   DbUser,
@@ -20,5 +19,5 @@ export type {
   HttpMethod,
   JobRunStatus,
   SubscriptionStatus,
-  SubscriptionTier,
 } from "./schema"
+export { isProAccessActive, gracePeriodEndsAt } from "./subscription"

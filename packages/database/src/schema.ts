@@ -18,13 +18,11 @@ export const SUBSCRIPTION_STATUSES = [
   "past_due",
   "incomplete",
 ] as const
-export const SUBSCRIPTION_TIERS = ["free", "pro"] as const
 
 export type UserRole = (typeof USER_ROLES)[number]
 export type HttpMethod = (typeof HTTP_METHODS)[number]
 export type JobRunStatus = (typeof JOB_RUN_STATUSES)[number]
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
-export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number]
 
 export const users = pgTable("users", {
   id: serial().primaryKey(),
@@ -34,9 +32,7 @@ export const users = pgTable("users", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   stripeCustomerId: text().unique(),
   subscriptionStatus: text({ enum: SUBSCRIPTION_STATUSES }),
-  subscriptionTier: text({ enum: SUBSCRIPTION_TIERS })
-    .notNull()
-    .default("free"),
+  subscriptionStatusUpdatedAt: timestamp({ withTimezone: true }),
 })
 
 export const jobs = pgTable("jobs", {
@@ -76,6 +72,7 @@ export const jobRuns = pgTable("job_runs", {
 
 export type DbUser = typeof users.$inferSelect
 export type DbUserInsert = typeof users.$inferInsert
+
 export type DbJob = typeof jobs.$inferSelect
 export type DbJobInsert = typeof jobs.$inferInsert
 export type DbJobRun = typeof jobRuns.$inferSelect

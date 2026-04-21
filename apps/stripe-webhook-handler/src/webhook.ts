@@ -38,8 +38,8 @@ export async function handleStripeWebhook(c: Context) {
         .update(users)
         .set({
           stripeCustomerId: customerId,
-          subscriptionTier: "pro",
           subscriptionStatus: "active",
+          subscriptionStatusUpdatedAt: new Date(),
         })
         .where(eq(users.id, parseInt(userId, 10)))
       break
@@ -60,7 +60,7 @@ export async function handleStripeWebhook(c: Context) {
 
       await db
         .update(users)
-        .set({ subscriptionStatus: status })
+        .set({ subscriptionStatus: status, subscriptionStatusUpdatedAt: new Date() })
         .where(eq(users.stripeCustomerId, customerId))
       break
     }
@@ -71,7 +71,7 @@ export async function handleStripeWebhook(c: Context) {
 
       await db
         .update(users)
-        .set({ subscriptionTier: "free", subscriptionStatus: "canceled" })
+        .set({ subscriptionStatus: "canceled", subscriptionStatusUpdatedAt: new Date() })
         .where(eq(users.stripeCustomerId, customerId))
       break
     }

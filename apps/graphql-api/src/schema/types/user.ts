@@ -1,6 +1,6 @@
 import { builder } from "../builder"
 import type { DbUser } from "database"
-import { jobs, jobRuns } from "database"
+import { jobs, jobRuns, isProAccessActive, gracePeriodEndsAt as getGracePeriodEndsAt } from "database"
 import { eq, and, gte, count } from "drizzle-orm"
 import { StatsRef } from "./stats"
 import { SubscriptionRef, FREE_JOB_LIMIT } from "./subscription"
@@ -89,16 +89,15 @@ export const UserRef = builder.objectRef<DbUser>("User").implement({
           .select({ jobCount: count() })
           .from(jobs)
           .where(eq(jobs.userId, user.id))
+        const active = env.COMMUNITY_EDITION || isProAccessActive(user)
+        const endsAt = env.COMMUNITY_EDITION ? null : getGracePeriodEndsAt(user)
         return {
-          tier: env.COMMUNITY_EDITION ? "pro" : user.subscriptionTier,
-          status: env.COMMUNITY_EDITION
-            ? null
-            : (user.subscriptionStatus ?? null),
-          jobLimit:
-            !env.COMMUNITY_EDITION && user.subscriptionTier === "free"
-              ? FREE_JOB_LIMIT
-              : null,
+          tier: env.COMMUNITY_EDITION ? "pro" : (active ? "pro" : "free"),
+          status: env.COMMUNITY_EDITION ? null : (user.subscriptionStatus ?? null),
+          jobLimit: !env.COMMUNITY_EDITION && !active ? FREE_JOB_LIMIT : null,
           jobCount,
+          isActive: active,
+          gracePeriodEndsAt: endsAt?.toISO() ?? null,
         }
       },
     }),

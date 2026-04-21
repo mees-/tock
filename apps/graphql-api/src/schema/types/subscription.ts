@@ -9,6 +9,8 @@ export type SubscriptionData = {
   status: string | null
   jobLimit: number | null
   jobCount: number
+  isActive: boolean
+  gracePeriodEndsAt: string | null
 }
 
 export const SubscriptionRef = builder
@@ -22,6 +24,8 @@ export const SubscriptionRef = builder
         description: "null means unlimited",
       }),
       jobCount: t.exposeInt("jobCount"),
+      isActive: t.exposeBoolean("isActive"),
+      gracePeriodEndsAt: t.exposeString("gracePeriodEndsAt", { nullable: true }),
     }),
   })
 

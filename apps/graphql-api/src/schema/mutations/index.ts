@@ -1,7 +1,7 @@
 import { builder } from "../builder"
 import { JobRef } from "../types/job"
 import { AuthPayloadRef } from "../types/user"
-import { jobs, users, type HttpMethod, type DbUser } from "database"
+import { jobs, users, isProAccessActive, type HttpMethod, type DbUser } from "database"
 import { eq, and, sql, count } from "drizzle-orm"
 import { signJWT, verifyJWT } from "auth"
 import { env } from "../../env"
@@ -218,7 +218,7 @@ builder.mutationField("createJob", t =>
     resolve: async (_root, { input }, ctx) => {
       const user = ctx.requireAuth()
 
-      if (!env.COMMUNITY_EDITION && user.subscriptionTier === "free") {
+      if (!env.COMMUNITY_EDITION && !isProAccessActive(user)) {
         const [{ value: jobCount }] = await ctx.db
           .select({ value: count() })
           .from(jobs)
