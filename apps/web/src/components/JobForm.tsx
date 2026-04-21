@@ -134,10 +134,10 @@ function CronComment({ expr }: { expr: string }) {
       verbose: false,
     })
     return (
-      <span className="text-zinc-600">
+      <>
         # {description.toLowerCase()}
         {nextRunFormatted != null && <> → next: {nextRunFormatted}</>}
-      </span>
+      </>
     )
   } catch {
     return null
@@ -206,15 +206,18 @@ function FormActionHint({
 
 function FormInput({
   error,
+  comment,
   className,
-  onChange,
+  onChange: forwardedOnChange,
   onKeyDown,
   ref: forwardedRef,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & {
   error?: string
+  comment?: React.ReactNode
   ref?: React.Ref<HTMLInputElement>
 }) {
+  const [valueLength, setValueLength] = useState(0)
   const innerRef = useRef<HTMLInputElement | null>(null)
 
   const ref = useCallback(
@@ -229,8 +232,23 @@ function FormInput({
     [forwardedRef],
   )
 
+  const onChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValueLength(e.target.value.length)
+      forwardedOnChange?.(e)
+    },
+    [forwardedOnChange],
+  )
+
+  // also properly capture initial value length
+  useEffect(() => {
+    if (innerRef.current) {
+      setValueLength(innerRef.current.value.length)
+    }
+  }, [innerRef.current])
+
   return (
-    <div className="flex items-baseline min-w-0 grow">
+    <div className="flex items-baseline min-w-0 grow flex-wrap">
       <input
         ref={ref}
         autoComplete="off"
@@ -241,11 +259,17 @@ function FormInput({
         {...props}
         className={clsx(
           className,
-          "min-w-[10ch]",
+          "grow mr-2",
           error && "underline decoration-wavy decoration-red-500",
         )}
+        style={{
+          maxWidth: `${Math.max(valueLength + 1, 2)}ch`,
+        }}
       />
       {error && <span className="text-red-500 shrink-0">← {error}</span>}
+      {!error && comment && (
+        <span className="text-zinc-600 shrink-0">{comment}</span>
+      )}
     </div>
   )
 }
@@ -475,6 +499,13 @@ export function JobForm(props: JobFormProps) {
             }}
             onKeyDown={makeFieldKeyHandler(FIELD_SCHEDULE)}
             error={errors.cronExpression?.message}
+            comment={
+              props.isActive || isNew ? (
+                <CronComment expr={cronExpression} />
+              ) : (
+                <span className="text-zinc-600"># Paused</span>
+              )
+            }
             style={{
               width: `${Math.max(cronExpression.length, 1)}ch`,
             }}
@@ -487,11 +518,6 @@ export function JobForm(props: JobFormProps) {
               },
             )}
           />
-          {props.isActive || isNew ? (
-            <CronComment expr={cronExpression} />
-          ) : (
-            <span className="text-zinc-600"># Paused</span>
-          )}
         </ConfigLine>
 
         {/* Headers — inline, always visible */}
