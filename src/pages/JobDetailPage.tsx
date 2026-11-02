@@ -6,7 +6,11 @@ import type { Job } from "@/lib/api"
 
 import RunsTable from "@/components/RunsTable"
 import RunsFilter from "@/components/RunsFilter"
-import { JobForm, headersToRecord } from "@/components/JobForm"
+import {
+  JobForm,
+  headerLinesFromRecord,
+  headersToRecord,
+} from "@/components/JobForm"
 import type { JobFormValues } from "@/components/JobForm"
 import { usePostHog } from "posthog-js/react"
 import {
@@ -22,10 +26,7 @@ function toFormValues(job: Job): JobFormValues {
     endpoint: job.endpoint,
     method: job.method,
     cronExpression: job.cronExpression,
-    headers: Object.entries(job.headers).map(([key, value]) => ({
-      key,
-      value,
-    })),
+    headers: headerLinesFromRecord(job.headers),
     body: job.body,
   }
 }

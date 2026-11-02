@@ -29,7 +29,7 @@ export default function NewJobPage() {
       method: values.method,
       cron_expression: values.cronExpression,
       has_body: values.body != null && values.body !== "",
-      has_headers: values.headers.some(h => h.key.trim() !== ""),
+      has_headers: Object.keys(headersToRecord(values.headers)).length > 0,
       has_description: values.description !== "",
     })
 

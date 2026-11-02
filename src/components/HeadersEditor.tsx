@@ -1,9 +1,17 @@
 import clsx from "clsx"
 import httpHeaderValidation from "http-headers-validation"
 import { useEffect, useImperativeHandle, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import { termInputCls } from "@/lib/styles"
+import { completeHeader } from "@/lib/completions"
+import { isMacOs } from "@/lib/platform"
+import { EditorLine } from "./editor/EditorLine"
+import { useCompletion } from "./editor/Completion"
 
 export type Header = { key: string; value: string }
+
+/** Header lines as typed, e.g. `Accept: text/html`. */
+export type HeaderLines = string[]
 
 const HEADER_PLACEHOLDERS = [
   "Accept: audio/woof",
@@ -13,24 +21,35 @@ const HEADER_PLACEHOLDERS = [
   "Authorization: Basic d2lubmllOnRoZXBvb2g=",
 ]
 
-function parseHeaderLine(raw: string): Header {
+export function parseHeaderLine(raw: string): Header {
   const idx = raw.indexOf(":")
   if (idx === -1) return { key: raw.trimEnd(), value: "" }
   return { key: raw.slice(0, idx).trimEnd(), value: raw.slice(idx + 1).trim() }
 }
 
-function toRaw(header: Header): string {
+export function toHeaderLine(header: Header): string {
   if (!header.key && !header.value) return ""
   if (!header.value) return header.key
   return `${header.key}: ${header.value}`
 }
 
+function validity(raw: string) {
+  const { key, value } = parseHeaderLine(raw)
+  return {
+    isNameValid: key === "" || httpHeaderValidation.validateHeaderName(key),
+    isValueValid:
+      value === "" || httpHeaderValidation.validateHeaderValue(value),
+  }
+}
+
+export function isHeaderLineValid(raw: string) {
+  const { isNameValid, isValueValid } = validity(raw)
+  return isNameValid && isValueValid
+}
+
 function HeaderOverlay({ raw }: { raw: string }) {
   const idx = raw.indexOf(":")
-  const { key, value } = parseHeaderLine(raw)
-  const isNameValid = key === "" || httpHeaderValidation.validateHeaderName(key)
-  const isValueValid =
-    value === "" || httpHeaderValidation.validateHeaderValue(value)
+  const { isNameValid, isValueValid } = validity(raw)
   if (idx === -1) {
     return (
       <span
@@ -69,64 +88,123 @@ function HeaderOverlay({ raw }: { raw: string }) {
   )
 }
 
-export type HeadersEditorHandle = { enter: () => void }
+export type HeadersEditorHandle = {
+  /** Focus the first or last line, creating one when there are none. */
+  enter: (position?: "first" | "last") => void
+  /** Append an empty line and focus it. */
+  add: () => void
+}
+
+type FocusRequest = { index: number; caret?: number }
 
 export function HeadersEditor({
-  headers,
-  onChange,
+  lines: rawLines,
+  onChange: changeRawLines,
+  onSeal,
   onExitDown,
   onExitUp,
+  firstLine,
+  cursorField,
   ref,
 }: {
-  headers: Header[]
-  onChange: (headers: Header[]) => void
+  lines: HeaderLines
+  onChange: (lines: HeaderLines) => void
+  /** Marks an undo-step boundary around structural edits. */
+  onSeal: () => void
   onExitDown?: () => void
   onExitUp?: () => void
+  /** Line number of the `headers:` label. */
+  firstLine: number
+  cursorField: string | null
   ref?: React.Ref<HeadersEditorHandle>
 }) {
-  const [rawLines, setRawLines] = useState<string[]>(() =>
-    headers.length > 0 ? headers.map(toRaw) : [],
-  )
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
   const containerRef = useRef<HTMLDivElement>(null)
-  const [shouldFocusLineIndex, setShouldFocusLineIndex] = useState<
-    number | null
-  >(null)
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null)
+  const [completionLine, setCompletionLine] = useState<number | null>(null)
 
-  const changeRawLines = (newValue: string[]) => {
-    setRawLines(newValue)
-    onChange(newValue.map(parseHeaderLine))
-  }
+  const completion = useCompletion(completeHeader, (raw, caret) => {
+    if (completionLine == null) return
+    onSeal()
+    flushSync(() => updateLine(completionLine, raw))
+    inputRefs.current[completionLine]?.setSelectionRange(caret, caret)
+    onSeal()
+  })
 
   useEffect(() => {
-    if (
-      shouldFocusLineIndex != null &&
-      shouldFocusLineIndex < rawLines.length
-    ) {
-      inputRefs.current[shouldFocusLineIndex]?.focus()
-      setShouldFocusLineIndex(null)
+    if (focusRequest == null || focusRequest.index >= rawLines.length) return
+    const input = inputRefs.current[focusRequest.index]
+    input?.focus()
+    if (focusRequest.caret != null) {
+      input?.setSelectionRange(focusRequest.caret, focusRequest.caret)
     }
-  }, [shouldFocusLineIndex, rawLines.length])
+    setFocusRequest(null)
+  }, [focusRequest, rawLines])
 
   function updateLine(index: number, raw: string) {
     const next = rawLines.map((r, i) => (i === index ? raw : r))
     changeRawLines(next)
   }
 
+  function structuralEdit(next: HeaderLines, focus: FocusRequest | null) {
+    onSeal()
+    flushSync(() => changeRawLines(next))
+    onSeal()
+    if (focus != null) setFocusRequest(focus)
+  }
+
+  /** ⌥↑/↓ moves, ⇧⌥↑/↓ duplicates and ⌘⇧K deletes the line. */
+  function handleLineCommand(
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) {
+    const caret = e.currentTarget.selectionStart ?? undefined
+    const mod = isMacOs ? e.metaKey : e.ctrlKey
+    const vertical = e.key === "ArrowUp" || e.key === "ArrowDown"
+    if (e.altKey && !mod && vertical) {
+      e.preventDefault()
+      const direction = e.key === "ArrowUp" ? -1 : 1
+      if (e.shiftKey) {
+        const next = [...rawLines]
+        next.splice(index + 1, 0, rawLines[index])
+        structuralEdit(next, {
+          index: direction === 1 ? index + 1 : index,
+          caret,
+        })
+        return
+      }
+      const target = index + direction
+      if (target < 0 || target >= rawLines.length) return
+      const next = [...rawLines]
+      next[index] = rawLines[target]
+      next[target] = rawLines[index]
+      structuralEdit(next, { index: target, caret })
+    } else if (mod && e.shiftKey && e.code === "KeyK") {
+      e.preventDefault()
+      const next = rawLines.filter((_, i) => i !== index)
+      if (next.length === 0) {
+        structuralEdit(next, null)
+        onExitUp?.()
+        return
+      }
+      structuralEdit(next, { index: Math.min(index, next.length - 1) })
+    }
+  }
+
   function handleKeyDown(
     index: number,
     e: React.KeyboardEvent<HTMLInputElement>,
   ) {
+    completion.handlers.onKeyDown(e)
+    if (e.defaultPrevented) return
+    handleLineCommand(index, e)
+    if (e.defaultPrevented) return
+
     if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
       e.preventDefault()
       // If current line is empty, exit downward
       if (rawLines[index] === "") {
-        // Remove empty trailing line and exit
-        if (rawLines.length === 1) {
-          changeRawLines([])
-        } else {
-          changeRawLines(rawLines.filter((_, i) => i !== index))
-        }
+        changeRawLines(rawLines.filter((_, i) => i !== index))
         onExitDown?.()
         return
       }
@@ -134,7 +212,7 @@ export function HeadersEditor({
       if (index >= rawLines.length - 1) {
         changeRawLines([...rawLines, ""])
       }
-      setShouldFocusLineIndex(index + 1)
+      setFocusRequest({ index: index + 1 })
     } else if (
       e.key === "Backspace" &&
       rawLines[index] === "" &&
@@ -146,76 +224,97 @@ export function HeadersEditor({
         onExitUp?.()
       } else {
         changeRawLines(rawLines.filter((_, i) => i !== index))
-        setShouldFocusLineIndex(Math.max(0, index - 1))
+        setFocusRequest({ index: Math.max(0, index - 1) })
       }
     } else if (e.key === "ArrowUp" && index === 0) {
       e.preventDefault()
       onExitUp?.()
     } else if (e.key === "ArrowDown") {
+      e.preventDefault()
       if (index >= rawLines.length - 1) {
-        e.preventDefault()
         onExitDown?.()
       } else {
-        e.preventDefault()
-        setShouldFocusLineIndex(index + 1)
+        setFocusRequest({ index: index + 1 })
       }
     } else if (e.key === "ArrowUp" && index > 0) {
       e.preventDefault()
-      setShouldFocusLineIndex(index - 1)
+      setFocusRequest({ index: index - 1 })
     }
   }
 
-  /** Called when the label area is clicked to enter the headers section */
-  function enterHeaders() {
+  function enterHeaders(position: "first" | "last" = "first") {
     if (rawLines.length === 0) {
       changeRawLines([""])
-      setShouldFocusLineIndex(0)
+      setFocusRequest({ index: 0 })
     } else {
-      inputRefs.current[0]?.focus()
+      const index = position === "first" ? 0 : rawLines.length - 1
+      inputRefs.current[index]?.focus()
     }
   }
 
-  useImperativeHandle(ref, () => ({ enter: enterHeaders }), [rawLines.length])
+  function addLine() {
+    changeRawLines([...rawLines, ""])
+    setFocusRequest({ index: rawLines.length })
+  }
+
+  useImperativeHandle(ref, () => ({ enter: enterHeaders, add: addLine }), [
+    rawLines,
+  ])
 
   const overlayBaseCls =
     "pointer-events-none absolute inset-0 flex items-center font-mono text-sm whitespace-pre px-0 py-0"
 
   const inputBaseCls = clsx(
     termInputCls,
-    "relative w-full bg-transparent text-transparent caret-emerald-400 font-mono text-sm",
+    "relative h-6 w-full bg-transparent text-transparent caret-emerald-400 font-mono text-sm",
   )
 
   function handleContainerBlur(e: React.FocusEvent<HTMLDivElement>) {
     if (containerRef.current?.contains(e.relatedTarget as Node)) return
-    if (rawLines.every(r => r === "")) {
+    if (rawLines.length > 0 && rawLines.every(r => r === "")) {
       changeRawLines([])
     }
   }
 
+  const firstEmpty = rawLines.findIndex(r => r === "")
+
   return (
     <div ref={containerRef} onBlur={handleContainerBlur}>
-      <div
-        className="flex items-center gap-2 cursor-text"
-        onClick={enterHeaders}
+      <EditorLine
+        number={firstLine}
+        className="cursor-text"
+        onClick={() => enterHeaders()}
       >
-        <span className="shrink-0 cursor-default text-zinc-500">headers:</span>
+        <span className="cursor-default text-zinc-500">headers:</span>
         {rawLines.length === 0 && (
-          <span className="text-zinc-600 text-sm font-mono italic">(none)</span>
+          <span className="ml-2 font-mono text-sm italic text-zinc-600">
+            (none)
+          </span>
         )}
-      </div>
+      </EditorLine>
       {rawLines.map((raw, i) => {
-        const firstEmpty = rawLines.findIndex(r => r === "")
         const showPlaceholder = raw === "" && i === firstEmpty
+        const completing = completionLine === i
         return (
-          <div key={i} className="flex items-center">
-            <div className="relative flex-1 min-w-0">
+          <EditorLine
+            key={i}
+            number={firstLine + 1 + i}
+            activeLine={cursorField === `headers.${i}` ? 0 : null}
+            problemLines={isHeaderLineValid(raw) ? [] : [0]}
+          >
+            <div className="relative ml-[2ch] h-6">
               <div className={overlayBaseCls} aria-hidden>
-                {showPlaceholder ? (
+                {showPlaceholder && !(completing && completion.ghost !== "") ? (
                   <span className="text-zinc-600">
                     {HEADER_PLACEHOLDERS[i % HEADER_PLACEHOLDERS.length]}
                   </span>
                 ) : (
                   <HeaderOverlay raw={raw} />
+                )}
+                {completing && (
+                  <span className="text-zinc-400 dark:text-zinc-600">
+                    {completion.ghost}
+                  </span>
                 )}
               </div>
               <input
@@ -223,16 +322,21 @@ export function HeadersEditor({
                   inputRefs.current[i] = el
                 }}
                 type="text"
-                list="header-names-edit"
+                data-field={`headers.${i}`}
                 value={raw}
                 onChange={e => updateLine(i, e.target.value)}
+                onInput={completion.handlers.onInput}
+                onSelect={completion.handlers.onSelect}
+                onFocus={() => setCompletionLine(i)}
+                onBlur={completion.handlers.onBlur}
                 onKeyDown={e => handleKeyDown(i, e)}
                 className={inputBaseCls}
                 spellCheck={false}
                 autoComplete="off"
               />
+              {completing && completion.popup}
             </div>
-          </div>
+          </EditorLine>
         )
       })}
     </div>

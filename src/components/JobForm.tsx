@@ -6,30 +6,36 @@ import React, {
   useRef,
   useState,
 } from "react"
+import { flushSync } from "react-dom"
 import clsx from "clsx"
 import cronstrue from "cronstrue"
 import { Cron } from "croner"
 import { DateTime } from "luxon"
 import { Pause, Play, Trash2 } from "lucide-react"
 import { termInputCls } from "@/lib/styles"
-import { HeadersEditor } from "./HeadersEditor"
-import type { Header, HeadersEditorHandle } from "./HeadersEditor"
+import { useEditHistory } from "@/lib/useEditHistory"
+import { completeCron, completeMethod, HTTP_METHODS } from "@/lib/completions"
+import { formatJson, jsonProblem, looksLikeJson } from "@/lib/json"
+import { isMacOs, shortcut } from "@/lib/platform"
+import {
+  HeadersEditor,
+  isHeaderLineValid,
+  parseHeaderLine,
+  toHeaderLine,
+} from "./HeadersEditor"
+import type { HeadersEditorHandle } from "./HeadersEditor"
+import { BodyEditor } from "./editor/BodyEditor"
+import { CommandPalette } from "./editor/CommandPalette"
+import type { Command } from "./editor/CommandPalette"
+import { useCompletion } from "./editor/Completion"
+import type { Completion } from "./editor/Completion"
+import { EditorLine } from "./editor/EditorLine"
+import { StatusBar } from "./editor/StatusBar"
+import { useCaret } from "./editor/useCaret"
 import { useMediaQuery } from "usehooks-ts"
 import { useHotkeys } from "react-hotkeys-hook"
 import { z } from "zod"
 import { useForm, Controller } from "react-hook-form"
-
-export type { Header }
-
-const METHODS = [
-  "GET",
-  "POST",
-  "PUT",
-  "PATCH",
-  "DELETE",
-  "HEAD",
-  "OPTIONS",
-] as const
 
 // The scheduler runs once per minute, so seconds fields aren't supported.
 const CRON_FIELD_COUNT = 5
@@ -49,11 +55,11 @@ const schema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string(),
   endpoint: z.httpUrl(),
-  method: z.enum(METHODS, { error: "Invalid HTTP method" }),
+  method: z.enum(HTTP_METHODS, { error: "Invalid HTTP method" }),
   cronExpression: z
     .string()
     .refine(isValidCron, "Invalid cron expression (use 5 fields)"),
-  headers: z.array(z.object({ key: z.string(), value: z.string() })),
+  headers: z.array(z.string()),
   body: z.string().nullable(),
 })
 
@@ -80,10 +86,98 @@ export const NEW_JOB_DEFAULTS: JobFormValues = {
   body: null,
 }
 
-export function headersToRecord(headers: Header[]) {
+export function headersToRecord(lines: string[]) {
   return Object.fromEntries(
-    headers.filter(h => h.key.trim() !== "").map(h => [h.key.trim(), h.value]),
+    lines
+      .map(parseHeaderLine)
+      .filter(h => h.key.trim() !== "")
+      .map(h => [h.key.trim(), h.value]),
   )
+}
+
+export function headerLinesFromRecord(headers: Record<string, string>) {
+  return Object.entries(headers).map(([key, value]) =>
+    toHeaderLine({ key, value }),
+  )
+}
+
+type FieldName = keyof JobFormValues
+type TextFieldName = Exclude<FieldName, "headers" | "body">
+
+const SAVE_KEYS = "mod+s, mod+enter"
+const UNDO_KEYS = isMacOs ? "mod+z, mod+shift+z" : "mod+z, mod+shift+z, ctrl+y"
+const PALETTE_KEYS = "mod+k, mod+shift+p"
+const NEXT_PROBLEM_KEY = "f8"
+const FIELD_NAMES = Object.keys(schema.shape) as FieldName[]
+
+const FIELD_LABELS: Record<FieldName, string> = {
+  name: "name",
+  description: "desc",
+  method: "method",
+  endpoint: "endpoint",
+  cronExpression: "schedule",
+  headers: "headers",
+  body: "body",
+}
+
+const FIELD_MODES: Record<TextFieldName, string> = {
+  name: "Text",
+  description: "Text",
+  method: "HTTP Method",
+  endpoint: "URL",
+  cronExpression: "Cron",
+}
+
+/** Line numbers of the fixed lines; header lines and the body follow. */
+const LINES = {
+  name: 1,
+  description: 2,
+  method: 3,
+  endpoint: 4,
+  cronExpression: 5,
+  headers: 6,
+} as const
+
+type FieldElement = HTMLInputElement | HTMLTextAreaElement
+
+/** Text of a `data-field` path such as `endpoint` or `headers.2`. */
+function fieldText(values: JobFormValues, field: string) {
+  const [name, index] = field.split(".")
+  if (name === "headers") return values.headers[Number(index)]
+  const value = values[name as FieldName]
+  if (value == null) return ""
+  return typeof value === "string" ? value : undefined
+}
+
+/** Caret offset in `to` just after the part that differs from `from`. */
+function changeEnd(from: string, to: string) {
+  const shorter = Math.min(from.length, to.length)
+  let prefix = 0
+  while (prefix < shorter && from[prefix] === to[prefix]) prefix++
+  let suffix = 0
+  while (
+    suffix < shorter - prefix &&
+    from[from.length - 1 - suffix] === to[to.length - 1 - suffix]
+  )
+    suffix++
+  return to.length - suffix
+}
+
+function activeField() {
+  const el = document.activeElement
+  return el instanceof HTMLElement ? (el.dataset.field ?? null) : null
+}
+
+function lineIndexAt(text: string, offset: number) {
+  return text.slice(0, offset).split("\n").length - 1
+}
+
+type Problem = {
+  field: string
+  line: number
+  offset?: number
+  severity: "error" | "warning"
+  message: string
 }
 
 type JobFormProps = {
@@ -147,28 +241,15 @@ function CronComment({ expr }: { expr: string }) {
 }
 
 function FormActionHint({
-  handleSubmit,
   submitting,
   isNew,
   hasErrors,
 }: {
-  handleSubmit: () => void
   submitting: boolean
   isNew: boolean
   hasErrors: boolean
 }) {
   const isTouchScreen = useMediaQuery("(hover: none)")
-  useHotkeys(
-    `mod-Enter`,
-    () => {
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur()
-      }
-      handleSubmit()
-    },
-    { enableOnFormTags: true },
-  )
-  const isMacOs = globalThis.navigator.platform.startsWith("Mac")
 
   if (hasErrors) {
     return (
@@ -178,7 +259,7 @@ function FormActionHint({
     )
   }
 
-  const shortCutText = isMacOs ? "⌘+⏎" : "Ctrl+⏎"
+  const shortCutText = shortcut("⌘S", "Ctrl+S")
 
   const actionText = submitting
     ? isNew
@@ -210,67 +291,59 @@ function FormInput({
   error,
   comment,
   className,
-  onChange: forwardedOnChange,
+  valueLength,
+  completion,
   onKeyDown,
-  ref: forwardedRef,
+  onBlur,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & {
   error?: string
   comment?: React.ReactNode
+  valueLength: number
+  completion?: Completion
   ref?: React.Ref<HTMLInputElement>
 }) {
-  const [valueLength, setValueLength] = useState(0)
-  const innerRef = useRef<HTMLInputElement | null>(null)
-
-  const ref = useCallback(
-    (el: HTMLInputElement | null) => {
-      innerRef.current = el
-      if (typeof forwardedRef === "function") forwardedRef(el)
-      else if (forwardedRef != null)
-        (
-          forwardedRef as React.MutableRefObject<HTMLInputElement | null>
-        ).current = el
-    },
-    [forwardedRef],
-  )
-
-  const onChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValueLength(e.target.value.length)
-      forwardedOnChange?.(e)
-    },
-    [forwardedOnChange],
-  )
-
-  // also properly capture initial value length
-  useEffect(() => {
-    if (innerRef.current) {
-      setValueLength(innerRef.current.value.length)
-    }
-  }, [innerRef.current])
-
+  const ghost = completion?.ghost ?? ""
   return (
-    <div className="flex items-baseline min-w-0 grow flex-wrap">
-      <input
-        ref={ref}
-        autoComplete="off"
-        onChange={e => {
-          onChange?.(e)
-        }}
-        onKeyDown={onKeyDown}
-        {...props}
-        className={clsx(
-          className,
-          "grow mr-2",
-          error && "underline decoration-wavy decoration-red-500",
+    <div className="flex min-w-0 grow flex-wrap items-baseline">
+      <div
+        className="relative mr-2 min-w-0 grow"
+        style={{ maxWidth: `${Math.max(valueLength + ghost.length + 1, 2)}ch` }}
+      >
+        <input
+          autoComplete="off"
+          spellCheck={false}
+          {...props}
+          onKeyDown={e => {
+            completion?.handlers.onKeyDown(e)
+            if (!e.defaultPrevented) onKeyDown?.(e)
+          }}
+          onInput={completion?.handlers.onInput}
+          onSelect={completion?.handlers.onSelect}
+          onBlur={e => {
+            completion?.handlers.onBlur()
+            onBlur?.(e)
+          }}
+          className={clsx(
+            className,
+            "h-6 w-full",
+            error && "underline decoration-wavy decoration-red-500",
+          )}
+        />
+        {ghost !== "" && (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-0 whitespace-pre text-zinc-400 dark:text-zinc-600"
+            style={{ left: `${valueLength}ch` }}
+          >
+            {ghost}
+          </span>
         )}
-        style={{
-          maxWidth: `${Math.max(valueLength + 1, 2)}ch`,
-        }}
-      />
-      {error && <span className="text-red-500 shrink-0">← {error}</span>}
+        {completion?.popup}
+      </div>
+      {error && <span className="min-w-0 text-red-500">← {error}</span>}
       {!error && comment && (
-        <span className="text-zinc-600 shrink-0">{comment}</span>
+        <span className="min-w-0 text-zinc-600">{comment}</span>
       )}
     </div>
   )
@@ -278,135 +351,460 @@ function FormInput({
 
 function ConfigLine({
   label,
+  line,
+  active,
+  problem,
   children,
-  className,
 }: {
   label: string
+  line: number
+  active: boolean
+  problem: boolean
   children: React.ReactNode
-  className?: string
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-
   const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (
       e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement ||
       e.target instanceof HTMLButtonElement ||
-      e.target instanceof HTMLSelectElement
+      e.target instanceof HTMLSelectElement ||
+      e.target instanceof HTMLLIElement
     )
       return
-    containerRef.current?.querySelector<HTMLInputElement>("input")?.focus()
+    e.currentTarget.querySelector<HTMLInputElement>("input")?.focus()
   }, [])
 
   return (
-    <div
-      ref={containerRef}
+    <EditorLine
+      number={line}
+      activeLine={active ? 0 : null}
+      problemLines={problem ? [0] : []}
+      className="cursor-text"
       onClick={handleClick}
-      className={clsx("flex items-baseline gap-2 cursor-text", className)}
     >
-      <span className="shrink-0 cursor-default text-zinc-500">{label}</span>
-      {children}
-    </div>
+      <div className="flex items-baseline gap-2">
+        <span className="shrink-0 cursor-default text-zinc-500">{label}:</span>
+        {children}
+      </div>
+    </EditorLine>
   )
 }
 
-/** Field index constants for navigation */
-const FIELD_NAME = 0
-const FIELD_DESC = 1
-const FIELD_METHOD = 2
-const FIELD_ENDPOINT = 3
-const FIELD_SCHEDULE = 4
-const FIELD_HEADERS = 5
-const FIELD_BODY = 6
+const FIELD_ORDER: FieldName[] = [
+  "name",
+  "description",
+  "method",
+  "endpoint",
+  "cronExpression",
+  "headers",
+  "body",
+]
 
 export function JobForm(props: JobFormProps) {
   const isNew = props.jobId == null
   const [error, setError] = useState<string | null>(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const paletteReturnFocus = useRef<HTMLElement | null>(null)
+  const headersEditorRef = useRef<HeadersEditorHandle | null>(null)
+
+  const [initialValues] = useState(() => ({
+    ...NEW_JOB_DEFAULTS,
+    ...(props.initialValues ?? {}),
+  }))
 
   const {
     register,
     handleSubmit: rhfHandleSubmit,
     control,
     watch,
+    getValues,
+    setValue,
     reset,
     formState: { errors, isDirty, isSubmitting, isValid },
   } = useForm<JobFormValues>({
     mode: "onChange",
-    defaultValues: {
-      ...NEW_JOB_DEFAULTS,
-      ...(props.initialValues ?? {}),
-    },
+    defaultValues: initialValues,
   })
 
-  const method = watch("method")
-  const cronExpression = watch("cronExpression")
+  const values = watch()
+  const { method, cronExpression } = values
+  const bodyText = values.body ?? ""
 
-  const hasChanges = isDirty
-  const submitting = isSubmitting
   const hasErrors = !isValid && isDirty
 
-  // Refs for all navigable fields
-  const fieldRefs = useRef<
-    Array<HTMLInputElement | HTMLTextAreaElement | null>
-  >([])
-  const headersEditorRef = useRef<HeadersEditorHandle | null>(null)
+  function fieldElement(field: string) {
+    return formRef.current?.querySelector<FieldElement>(
+      `[data-field="${field}"]`,
+    )
+  }
 
-  const focusField = useCallback((index: number) => {
-    if (index === FIELD_HEADERS) {
-      headersEditorRef.current?.enter()
-    } else if (index === FIELD_BODY) {
-      fieldRefs.current[FIELD_BODY]?.focus()
-    } else {
-      fieldRefs.current[index]?.focus()
-    }
-  }, [])
+  function focusField(name: FieldName, position: "first" | "last" = "first") {
+    if (name === "headers") headersEditorRef.current?.enter(position)
+    else fieldElement(name)?.focus()
+  }
 
-  const makeFieldKeyHandler = useCallback(
-    (fieldIndex: number) => (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+  function focusSibling(name: FieldName, step: 1 | -1) {
+    const target = FIELD_ORDER[FIELD_ORDER.indexOf(name) + step]
+    if (target != null) focusField(target, step === -1 ? "last" : "first")
+  }
+
+  /** Writes a value as its own undo step and places the caret. */
+  function replaceValue(name: TextFieldName, value: string, caret: number) {
+    history.seal()
+    setValue(name, value, { shouldDirty: true, shouldValidate: true })
+    history.seal()
+    fieldElement(name)?.setSelectionRange(caret, caret)
+  }
+
+  function fieldKeyHandler(name: TextFieldName) {
+    return (e: React.KeyboardEvent<HTMLInputElement>) => {
+      const mod = isMacOs ? e.metaKey : e.ctrlKey
+      if (mod && e.shiftKey && e.code === "KeyK") {
         e.preventDefault()
-        focusField(fieldIndex + 1)
-      } else if (e.key === "ArrowDown") {
+        replaceValue(name, "", 0)
+      } else if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
-        focusField(fieldIndex + 1)
-      } else if (e.key === "ArrowUp" && fieldIndex > 0) {
+        focusSibling(name, 1)
+      } else if (e.key === "ArrowDown" && !e.altKey) {
         e.preventDefault()
-        focusField(fieldIndex - 1)
+        focusSibling(name, 1)
+      } else if (e.key === "ArrowUp" && !e.altKey) {
+        e.preventDefault()
+        focusSibling(name, -1)
       }
-    },
-    [focusField],
+    }
+  }
+
+  const methodCompletion = useCompletion(completeMethod, (value, caret) =>
+    replaceValue("method", value, caret),
+  )
+  const cronCompletion = useCompletion(completeCron, (value, caret) =>
+    replaceValue("cronExpression", value, caret),
   )
 
-  const handleSubmit = rhfHandleSubmit(async values => {
+  const handleSubmit = rhfHandleSubmit(async submitted => {
     setError(null)
     try {
-      await props.onSubmit(values)
-      reset(values)
+      await props.onSubmit(submitted)
+      // Keep edits typed while the request was in flight.
+      reset(submitted, { keepValues: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     }
   })
 
+  function save() {
+    if (isDirty && !isSubmitting) void handleSubmit()
+  }
+
+  const history = useEditHistory(initialValues, (snapshot, field) => {
+    const previous = getValues()
+    flushSync(() => {
+      for (const name of FIELD_NAMES) {
+        setValue(name, snapshot[name], {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+      }
+    })
+    const el = field == null ? null : fieldElement(field)
+    if (field == null || el == null) {
+      // The edited field may be gone (a removed header line); stay in the form.
+      if (!formRef.current?.contains(document.activeElement)) {
+        formRef.current?.focus({ preventScroll: true })
+      }
+      return
+    }
+    const text = fieldText(snapshot, field) ?? ""
+    const caret = changeEnd(fieldText(previous, field) ?? "", text)
+    el.focus()
+    el.setSelectionRange(caret, caret)
+  })
+
+  useEffect(() => {
+    let headerCount = getValues().headers.length
+    const subscription = watch(() => {
+      const snapshot = structuredClone(getValues())
+      const linesChanged = snapshot.headers.length !== headerCount
+      headerCount = snapshot.headers.length
+      history.record(snapshot, activeField(), { coalesce: !linesChanged })
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, getValues, history])
+
+  const formRef = useHotkeys<HTMLFormElement>(
+    UNDO_KEYS,
+    e =>
+      e.shiftKey || e.key.toLowerCase() === "y"
+        ? history.redo()
+        : history.undo(),
+    { enableOnFormTags: true, preventDefault: true },
+  )
+
+  const caret = useCaret(formRef)
+
+  const bodyLine = LINES.headers + 1 + values.headers.length
+  const bodyLineCount = Math.max(1, bodyText.split("\n").length)
+  const bodyProblem = jsonProblem(bodyText)
+
+  function lineOf(field: string) {
+    const [name, index] = field.split(".")
+    if (name === "headers") return LINES.headers + 1 + Number(index)
+    if (name === "body") return bodyLine
+    return LINES[name as keyof typeof LINES]
+  }
+
+  const problems: Problem[] = [
+    ...(["name", "method", "endpoint", "cronExpression"] as const).flatMap(
+      name => {
+        const message = errors[name]?.message
+        if (message == null) return []
+        return [
+          {
+            field: name,
+            line: LINES[name],
+            severity: "error" as const,
+            message,
+          },
+        ]
+      },
+    ),
+    ...values.headers.flatMap((raw, i) =>
+      isHeaderLineValid(raw)
+        ? []
+        : [
+            {
+              field: `headers.${i}`,
+              line: LINES.headers + 1 + i,
+              severity: "warning" as const,
+              message: "Invalid header",
+            },
+          ],
+    ),
+    ...(bodyProblem == null
+      ? []
+      : [
+          {
+            field: "body",
+            line: bodyLine + lineIndexAt(bodyText, bodyProblem.offset),
+            offset: bodyProblem.offset,
+            severity: "warning" as const,
+            message: bodyProblem.message,
+          },
+        ]),
+  ]
+
+  const position =
+    caret == null
+      ? null
+      : { line: lineOf(caret.field) + caret.line, col: caret.col + 1 }
+
+  function modeOf(field: string | undefined) {
+    if (field == null) return null
+    if (field.startsWith("headers")) return "HTTP Headers"
+    if (field === "body") return looksLikeJson(bodyText) ? "JSON" : "Plain Text"
+    return FIELD_MODES[field as TextFieldName] ?? null
+  }
+
+  function goToNextProblem() {
+    const current = position?.line ?? 0
+    const problem = problems.find(p => p.line > current) ?? problems[0]
+    if (problem == null) return
+    const el = fieldElement(problem.field)
+    if (el == null) return
+    const offset = problem.offset ?? el.value.length
+    el.focus()
+    el.setSelectionRange(offset, offset)
+  }
+
+  function formatBody() {
+    const formatted = formatJson(bodyText)
+    if (formatted == null) return
+    history.seal()
+    setValue("body", formatted, { shouldDirty: true, shouldValidate: true })
+    history.seal()
+    focusField("body")
+  }
+
+  function openPalette() {
+    if (paletteOpen) return
+    paletteReturnFocus.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+    setPaletteOpen(true)
+  }
+
+  function closePalette() {
+    setPaletteOpen(false)
+    const el = paletteReturnFocus.current
+    if (el?.isConnected === true && el !== document.body) el.focus()
+    else formRef.current?.focus({ preventScroll: true })
+  }
+
+  const commands: Command[] = [
+    {
+      id: "save",
+      label: isNew ? "Create job" : "Save",
+      shortcut: shortcut("⌘S", "Ctrl+S"),
+      run: save,
+    },
+    {
+      id: "undo",
+      label: "Undo",
+      shortcut: shortcut("⌘Z", "Ctrl+Z"),
+      run: history.undo,
+    },
+    {
+      id: "redo",
+      label: "Redo",
+      shortcut: shortcut("⇧⌘Z", "Ctrl+Y"),
+      run: history.redo,
+    },
+    ...(problems.length > 0
+      ? [
+          {
+            id: "problem",
+            label: "Go to next problem",
+            shortcut: "F8",
+            run: goToNextProblem,
+          },
+        ]
+      : []),
+    ...(looksLikeJson(bodyText)
+      ? [
+          {
+            id: "format",
+            label: "Format body",
+            shortcut: shortcut("⇧⌥F", "Shift+Alt+F"),
+            run: formatBody,
+          },
+        ]
+      : []),
+    {
+      id: "add-header",
+      label: "Add header",
+      run: () => headersEditorRef.current?.add(),
+    },
+    ...FIELD_ORDER.map(name => ({
+      id: `go-${name}`,
+      label: `Go to ${FIELD_LABELS[name]}`,
+      run: () => focusField(name),
+    })),
+    ...(props.onToggle == null
+      ? []
+      : [
+          {
+            id: "toggle",
+            label: props.isActive ? "Pause job" : "Resume job",
+            run: () => void props.onToggle?.(),
+          },
+        ]),
+    ...(props.onDelete == null
+      ? []
+      : [
+          {
+            id: "delete",
+            label: "Delete job",
+            run: () => void props.onDelete?.(),
+          },
+        ]),
+  ]
+
+  useHotkeys(
+    SAVE_KEYS,
+    save,
+    { enableOnFormTags: true, preventDefault: true },
+    [isDirty, isSubmitting, handleSubmit],
+  )
+  useHotkeys(
+    PALETTE_KEYS,
+    openPalette,
+    { enableOnFormTags: true, preventDefault: true },
+    [paletteOpen],
+  )
+  useHotkeys(
+    NEXT_PROBLEM_KEY,
+    goToNextProblem,
+    { enableOnFormTags: true, preventDefault: true },
+    [problems, position],
+  )
+
+  // Undo/Redo from the browser's Edit menu.
+  useEffect(() => {
+    const form = formRef.current
+    if (form == null) return
+    function onBeforeInput(e: InputEvent) {
+      if (e.inputType === "historyUndo") {
+        e.preventDefault()
+        history.undo()
+      } else if (e.inputType === "historyRedo") {
+        e.preventDefault()
+        history.redo()
+      }
+    }
+    form.addEventListener("beforeinput", onBeforeInput)
+    return () => form.removeEventListener("beforeinput", onBeforeInput)
+  }, [formRef, history])
+
+  useEffect(() => {
+    if (!isDirty) return
+    function warn(e: BeforeUnloadEvent) {
+      e.preventDefault()
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [isDirty])
+
+  const errorCount = problems.filter(p => p.severity === "error").length
+  const saveState = isSubmitting
+    ? isNew
+      ? "Creating…"
+      : "Saving…"
+    : isDirty
+      ? "Modified"
+      : isNew
+        ? "Not created"
+        : "Saved"
+
+  const isActiveLine = (field: string) => caret?.field === field
+  const hasProblem = (field: string) => problems.some(p => p.field === field)
+
   return (
     <form
+      ref={formRef}
+      // Clicks on the form chrome keep focus inside, so undo stays scoped to it.
+      tabIndex={-1}
       onSubmit={handleSubmit}
-      className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+      className="rounded-xl border border-zinc-200 bg-white shadow-lg outline-none dark:border-zinc-800 dark:bg-zinc-900"
     >
       {/* Title bar */}
       <div className="flex items-center gap-2.5 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <span className="ml-2 flex-1 text-xs text-zinc-500">Job config</span>
+        <span className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 font-mono text-xs text-zinc-500">
+          <span className="truncate">
+            <span className="text-zinc-800 dark:text-zinc-200">
+              {values.name.trim() === "" ? "untitled" : values.name.trim()}
+            </span>
+            .job
+          </span>
+          {isDirty && (
+            <span title="Unsaved changes" className="text-zinc-400">
+              ●
+            </span>
+          )}
+        </span>
 
         <div className="flex items-center gap-1">
-          {(hasChanges || hasErrors) && (
+          {(isDirty || hasErrors) && (
             <FormActionHint
-              handleSubmit={handleSubmit}
-              submitting={submitting}
+              submitting={isSubmitting}
               isNew={isNew}
               hasErrors={hasErrors}
             />
           )}
           {props.onToggle != null && (
             <button
+              type="button"
               onClick={props.onToggle}
               className="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
             >
@@ -416,6 +814,7 @@ export function JobForm(props: JobFormProps) {
           )}
           {props.onDelete != null && (
             <button
+              type="button"
               onClick={props.onDelete}
               className="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs text-red-500 transition-colors hover:text-red-400"
             >
@@ -426,80 +825,93 @@ export function JobForm(props: JobFormProps) {
         </div>
       </div>
 
-      {/* Body — scrollable like a code editor */}
-      <div className="overflow-auto px-5 py-4 font-mono text-sm leading-relaxed space-y-1">
-        <ConfigLine label="name:">
+      <div className="py-3 font-mono text-sm leading-6">
+        <ConfigLine
+          label={FIELD_LABELS.name}
+          line={LINES.name}
+          active={isActiveLine("name")}
+          problem={hasProblem("name")}
+        >
           <FormInput
             type="text"
             {...register("name", { validate: zv(schema.shape.name) })}
-            ref={el => {
-              fieldRefs.current[FIELD_NAME] = el
-              register("name").ref(el)
-            }}
-            onKeyDown={makeFieldKeyHandler(FIELD_NAME)}
+            onKeyDown={fieldKeyHandler("name")}
+            data-field="name"
+            valueLength={values.name.length}
             error={errors.name?.message}
             className={clsx(termInputCls, "text-zinc-900 dark:text-white")}
           />
         </ConfigLine>
 
-        <ConfigLine label="desc:">
+        <ConfigLine
+          label={FIELD_LABELS.description}
+          line={LINES.description}
+          active={isActiveLine("description")}
+          problem={false}
+        >
           <FormInput
             type="text"
             {...register("description")}
-            ref={el => {
-              fieldRefs.current[FIELD_DESC] = el
-              register("description").ref(el)
-            }}
-            onKeyDown={makeFieldKeyHandler(FIELD_DESC)}
+            onKeyDown={fieldKeyHandler("description")}
+            data-field="description"
+            valueLength={values.description.length}
             className={clsx(termInputCls, "text-zinc-600 dark:text-zinc-400")}
           />
         </ConfigLine>
 
-        <ConfigLine label="method:">
+        <ConfigLine
+          label={FIELD_LABELS.method}
+          line={LINES.method}
+          active={isActiveLine("method")}
+          problem={hasProblem("method")}
+        >
           <FormInput
             type="text"
             {...register("method", {
               setValueAs: (v: string) => v.toUpperCase(),
               validate: zv(schema.shape.method),
             })}
-            ref={el => {
-              fieldRefs.current[FIELD_METHOD] = el
-              register("method").ref(el)
-            }}
-            onKeyDown={makeFieldKeyHandler(FIELD_METHOD)}
+            onKeyDown={fieldKeyHandler("method")}
+            completion={methodCompletion}
+            data-field="method"
+            valueLength={method.length}
             error={errors.method?.message}
-            className={clsx(termInputCls, methodColor(method), "w-28")}
+            className={clsx(termInputCls, methodColor(method))}
           />
         </ConfigLine>
 
-        <ConfigLine label="endpoint:">
+        <ConfigLine
+          label={FIELD_LABELS.endpoint}
+          line={LINES.endpoint}
+          active={isActiveLine("endpoint")}
+          problem={hasProblem("endpoint")}
+        >
           <FormInput
             type="text"
             {...register("endpoint", { validate: zv(schema.shape.endpoint) })}
-            ref={el => {
-              fieldRefs.current[FIELD_ENDPOINT] = el
-              register("endpoint").ref(el)
-            }}
-            onKeyDown={makeFieldKeyHandler(FIELD_ENDPOINT)}
+            onKeyDown={fieldKeyHandler("endpoint")}
+            data-field="endpoint"
+            valueLength={values.endpoint.length}
             error={errors.endpoint?.message}
-            className={clsx(
-              termInputCls,
-              "grow text-blue-600 dark:text-blue-400",
-            )}
+            className={clsx(termInputCls, "text-blue-600 dark:text-blue-400")}
           />
         </ConfigLine>
 
-        <ConfigLine label="schedule:" className="flex-wrap gap-y-1">
+        <ConfigLine
+          label={FIELD_LABELS.cronExpression}
+          line={LINES.cronExpression}
+          active={isActiveLine("cronExpression")}
+          problem={hasProblem("cronExpression")}
+        >
           <FormInput
             type="text"
             {...register("cronExpression", {
               validate: zv(schema.shape.cronExpression),
             })}
-            ref={el => {
-              fieldRefs.current[FIELD_SCHEDULE] = el
-              register("cronExpression").ref(el)
-            }}
-            onKeyDown={makeFieldKeyHandler(FIELD_SCHEDULE)}
+            onKeyDown={fieldKeyHandler("cronExpression")}
+            completion={cronCompletion}
+            data-field="cronExpression"
+            valueLength={cronExpression.length}
             error={errors.cronExpression?.message}
             comment={
               props.isActive || isNew ? (
@@ -508,86 +920,95 @@ export function JobForm(props: JobFormProps) {
                 <span className="text-zinc-600"># Paused</span>
               )
             }
-            style={{
-              width: `${Math.max(cronExpression.length, 1)}ch`,
-            }}
             className={clsx(
               termInputCls,
-              "text-zinc-900 dark:text-white w-auto mr-4",
-              {
-                "line-through text-zinc-400":
-                  props.jobId != null && props.isActive === false,
-              },
+              "text-zinc-900 dark:text-white",
+              props.jobId != null &&
+                props.isActive === false &&
+                "line-through text-zinc-400",
             )}
           />
         </ConfigLine>
 
-        {/* Headers — inline, always visible */}
         <Controller
           control={control}
           name="headers"
           render={({ field }) => (
             <HeadersEditor
-              headers={field.value}
+              lines={field.value}
               onChange={field.onChange}
+              onSeal={history.seal}
               ref={headersEditorRef}
-              onExitDown={() => focusField(FIELD_BODY)}
-              onExitUp={() => focusField(FIELD_SCHEDULE)}
+              firstLine={LINES.headers}
+              cursorField={caret?.field ?? null}
+              onExitDown={() => focusField("body")}
+              onExitUp={() => focusField("cronExpression")}
             />
           )}
         />
 
-        {/* Body — inline, always visible */}
         <Controller
           control={control}
           name="body"
           render={({ field }) => (
-            <div className="flex items-start gap-2">
-              <span className="shrink-0 cursor-default text-zinc-500 leading-relaxed">
-                body:
-              </span>
-              <div className="flex-1 min-w-0">
-                <textarea
-                  ref={el => {
-                    fieldRefs.current[FIELD_BODY] = el
-                  }}
+            <EditorLine
+              number={bodyLine}
+              count={bodyLineCount}
+              activeLine={caret?.field === "body" ? caret.line : null}
+              problemLines={
+                bodyProblem == null
+                  ? []
+                  : [lineIndexAt(bodyText, bodyProblem.offset)]
+              }
+            >
+              <div className="flex gap-2">
+                <span
+                  className="shrink-0 cursor-default text-zinc-500"
+                  onClick={() => focusField("body")}
+                >
+                  {FIELD_LABELS.body}:
+                </span>
+                <BodyEditor
                   value={field.value ?? ""}
-                  onChange={e => {
-                    const val = e.target.value
-                    field.onChange(val === "" ? null : val)
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === "ArrowUp") {
-                      const el = e.currentTarget
-                      // If cursor is on the first line, exit upward
-                      if (el.selectionStart != null) {
-                        const textBefore = el.value.slice(0, el.selectionStart)
-                        if (!textBefore.includes("\n")) {
-                          e.preventDefault()
-                          focusField(FIELD_HEADERS)
-                        }
-                      }
-                    }
-                  }}
-                  rows={Math.max(1, (field.value ?? "").split("\n").length)}
-                  placeholder='{"key": "value"}'
-                  className={clsx(
-                    termInputCls,
-                    "w-full text-zinc-700 dark:text-zinc-300 resize-none leading-relaxed",
-                  )}
-                  spellCheck={false}
+                  onChange={value =>
+                    field.onChange(value === "" ? null : value)
+                  }
+                  onSeal={history.seal}
+                  onExitUp={() => focusField("headers", "last")}
+                  problem={bodyProblem}
                 />
               </div>
-            </div>
+            </EditorLine>
           )}
         />
+        {bodyProblem != null && (
+          <EditorLine number={null}>
+            <span className="ml-[6ch] text-amber-600 dark:text-amber-400">
+              # {bodyProblem.message}
+            </span>
+          </EditorLine>
+        )}
 
         {error != null && (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 mt-3 dark:bg-red-900/30 dark:text-red-400">
+          <div className="mx-5 mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
             {error}
           </div>
         )}
       </div>
+
+      <StatusBar
+        position={position}
+        mode={modeOf(caret?.field)}
+        errors={errorCount}
+        warnings={problems.length - errorCount}
+        onProblemsClick={goToNextProblem}
+        saveState={saveState}
+        commandsShortcut={shortcut("⌘K", "Ctrl+K")}
+      />
+
+      {paletteOpen && (
+        <CommandPalette commands={commands} onClose={closePalette} />
+      )}
     </form>
   )
 }
