@@ -7,14 +7,15 @@ a GraphQL API, clean UI, and full run history.
 
 ## Architecture
 
-Everything runs as a single Cloudflare Worker backed by D1.
+Everything runs as a single Cloudflare Worker backed by D1, built with Vite and
+the Cloudflare Vite plugin.
 
-| Path                | Description                                                                        |
-| ------------------- | ---------------------------------------------------------------------------------- |
-| `apps/graphql-api`  | The Worker: GraphQL API, Stripe webhook, minute Cron Trigger, serves the web build |
-| `apps/web`          | React + Vite + urql + gql-tada frontend (static assets)                            |
-| `packages/database` | Drizzle ORM schema + D1 client (source-only)                                       |
-| `packages/auth`     | JWT sign/verify + password hashing (source-only)                                   |
+| Path         | Description                                                            |
+| ------------ | ---------------------------------------------------------------------- |
+| `src/`       | React + urql + gql-tada frontend, served as the Worker's static assets |
+| `worker/`    | The Worker: GraphQL API, Stripe webhook, minute Cron Trigger           |
+| `worker/db/` | Drizzle ORM schema + D1 client                                         |
+| `scripts/`   | Dev tooling (GraphQL schema generation, local Cron Trigger)            |
 
 A Cron Trigger fires every minute and runs every active job whose cron
 expression matches that minute. Cron expressions use 5 fields (no seconds). The
@@ -43,19 +44,16 @@ pnpm install
 pnpm dev
 ```
 
-This creates the local D1 database, pushes the schema, and starts:
-
-- Worker (GraphQL API + GraphiQL): `http://localhost:4000/graphql`
-- Web UI: `http://localhost:5173`
-- A helper that fires the scheduled handler every minute (`wrangler dev` does
-  not run Cron Triggers on its own)
+This creates the local D1 database, pushes the schema, regenerates
+`schema.graphql` on changes, and starts Vite at `http://localhost:5173`, which
+serves the web UI, the Worker (`/graphql`, with GraphiQL) and fires the
+scheduled handler every minute.
 
 On first startup, visit `http://localhost:5173/setup` to create the admin
 account.
 
-> **Note:** The repo ships with `COMMUNITY_EDITION=true` in
-> `apps/graphql-api/.env.local`, so Stripe is disabled and no additional setup
-> is needed.
+> **Note:** The repo ships with `COMMUNITY_EDITION=true` in `.env` (local Worker
+> variables), so Stripe is disabled and no additional setup is needed.
 
 ---
 
@@ -64,31 +62,21 @@ account.
 To test billing locally, you'll need a [Stripe](https://stripe.com) account and
 the [Stripe CLI](https://stripe.com/docs/stripe-cli).
 
-Rather than editing the committed `.env.local` files, use a gitignored `.envrc`
-at the repo root via [direnv](https://direnv.net):
+Put your Stripe test values in a gitignored `.env.local` at the repo root; it
+overrides `.env`:
 
 ```bash
-# .envrc (never committed — add your own values)
-export CLOUDFLARE_INCLUDE_PROCESS_ENV=true
-export COMMUNITY_EDITION=false
-export STRIPE_SECRET_KEY=sk_test_...
-export STRIPE_PRO_MONTHLY_PRICE_ID=price_...
-export STRIPE_PRO_YEARLY_PRICE_ID=price_...
-export STRIPE_WEBHOOK_SECRET=whsec_...
+COMMUNITY_EDITION=false
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+STRIPE_PRO_YEARLY_PRICE_ID=price_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
-
-```bash
-# Allow direnv to load it
-direnv allow
-```
-
-`CLOUDFLARE_INCLUDE_PROCESS_ENV` makes `wrangler dev` pass shell variables to
-the Worker, and they take precedence over `.env.local`.
 
 To forward Stripe events to the local Worker:
 
 ```bash
-stripe listen --forward-to localhost:4000/stripe/webhook
+stripe listen --forward-to localhost:5173/stripe/webhook
 ```
 
 ---
@@ -96,17 +84,17 @@ stripe listen --forward-to localhost:4000/stripe/webhook
 ## Deploying to Cloudflare
 
 The Worker, its D1 database (`tock`, EU jurisdiction) and secrets live in
-Cloudflare. Deploy from the repo root:
+Cloudflare. Deploy with:
 
 ```bash
 pnpm run deploy
 ```
 
-This builds the web app and deploys the Worker with its static assets and the
-minute Cron Trigger. Secrets are managed with
-`pnpm -F graphql-api exec wrangler secret put <NAME>`.
+This typechecks, builds the web app and Worker with Vite, and deploys them with
+the minute Cron Trigger. Secrets are managed with
+`pnpm exec wrangler secret put <NAME>`.
 
 Schema changes to production D1 are not applied by `deploy`. Apply them with
-`wrangler d1 execute DB --remote` or `pnpm -F database migrate` (needs
+`wrangler d1 execute DB --remote` or `pnpm db:migrate-remote` (needs
 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID` and a D1-scoped
 `CLOUDFLARE_API_TOKEN`).

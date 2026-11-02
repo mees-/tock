@@ -3,8 +3,8 @@
   "js/ts.tsdk.promptToUseWorkspaceVersion": true,
   "json.schemas": [
     {
-      "fileMatch": ["apps/web/src/lib/announcements.json"],
-      "url": "./apps/web/src/lib/announcements.schema.json"
+      "fileMatch": ["src/lib/announcements.json"],
+      "url": "./src/lib/announcements.schema.json"
     }
   ]
 }

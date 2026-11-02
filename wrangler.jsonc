@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tock",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/graphql", "/stripe/*"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tock",
+      "database_id": "ec55b4da-b8ce-4520-a455-4db14e579d0a",
+    },
+  ],
+  "routes": [
+    { "pattern": "tock.run", "custom_domain": true },
+    { "pattern": "api.tock.run", "custom_domain": true },
+    { "pattern": "stripe.tock.run", "custom_domain": true },
+    { "pattern": "tock.mees.sh", "custom_domain": true },
+  ],
+  "triggers": {
+    "crons": ["* * * * *"],
+  },
+  "vars": {
+    "COMMUNITY_EDITION": "false",
+    "WEB_URL": "https://tock.run",
+    "STRIPE_PRO_MONTHLY_PRICE_ID": "price_1T7lljEKxZaGpJ8cVw3lC3eo",
+    "STRIPE_PRO_YEARLY_PRICE_ID": "price_1T7lljEKxZaGpJ8cJ40EEpCT",
+  },
+  "observability": {
+    "enabled": true,
+  },
+}

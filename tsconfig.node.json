@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "types": ["bun", "@cloudflare/workers-types", "vite/client"]
+  },
+  "include": [
+    "scripts",
+    "vite.config.ts",
+    "drizzle.config.ts",
+    "drizzle.remote.config.ts",
+    "remote-env.ts"
+  ]
+}

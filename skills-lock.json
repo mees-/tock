@@ -10,11 +10,6 @@
       "source": "coreyhaines31/marketingskills",
       "sourceType": "github",
       "computedHash": "ec3109d213dde1747614ad1112ef0e498e04b24e464538968e156dfbfadb2121"
-    },
-    "use-railway": {
-      "source": "railwayapp/railway-skills",
-      "sourceType": "github",
-      "computedHash": "cb99ff7cb24ce7c6136feb65e279a110389e0ee743d2e040f65f618c446c68a2"
     }
   }
 }

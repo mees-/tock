@@ -1,23 +1,5 @@
-packages:
-  - apps/*
-  - packages/*
-
 allowBuilds:
   core-js: false
   esbuild: true
   protobufjs: false
   workerd: true
-
-catalog:
-  "@cloudflare/workers-types": 5.20261031.1
-  "@types/bun": ^1.3.8
-  "@types/luxon": ^3.7.1
-  croner: ^10.0.1
-  drizzle-orm: beta
-  graphql: ^16.13.1
-  jose: ^6.1.3
-  luxon: ^3.7.2
-  stripe: ^20.4.0
-  typescript: ^5.9.3
-  wrangler: ^4.156.0
-  zod: ^4.3.6
