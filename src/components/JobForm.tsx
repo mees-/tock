@@ -80,13 +80,9 @@ export const NEW_JOB_DEFAULTS: JobFormValues = {
   body: null,
 }
 
-export function serializeHeaders(headers: Header[]) {
-  return JSON.stringify(
-    Object.fromEntries(
-      headers
-        .filter(h => h.key.trim() !== "")
-        .map(h => [h.key.trim(), h.value]),
-    ),
+export function headersToRecord(headers: Header[]) {
+  return Object.fromEntries(
+    headers.filter(h => h.key.trim() !== "").map(h => [h.key.trim(), h.value]),
   )
 }
 

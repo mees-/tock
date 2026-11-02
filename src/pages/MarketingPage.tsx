@@ -14,21 +14,7 @@ import { useEffect } from "react"
 import { useCanSignup } from "@/lib/auth/canSignupHook"
 import { DateTime } from "luxon"
 import { useMediaQuery } from "usehooks-ts"
-import { useQuery } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
-
-const SubscriptionPricesQuery = graphql(`
-  query SubscriptionPrices {
-    subscriptionPrices {
-      monthly {
-        amount
-      }
-      yearly {
-        amount
-      }
-    }
-  }
-`)
+import { usePrices } from "@/lib/queries"
 
 const GITHUB_URL = "https://github.com/mees-/tock"
 
@@ -67,7 +53,7 @@ export default function MarketingPage() {
   const canSignup = useCanSignup()
   const [, navigate] = useLocation()
   const isMobile = useMediaQuery("(max-width: 768px)")
-  const [{ data: pricesData }] = useQuery({ query: SubscriptionPricesQuery })
+  const { data: prices } = usePrices()
   useEffect(() => {
     if (!canSignup) {
       navigate("/login")
@@ -357,7 +343,7 @@ export default function MarketingPage() {
       </section>
 
       {/* Pricing */}
-      {pricesData?.subscriptionPrices != null && (
+      {prices != null && (
         <section className="bg-white px-6 py-24">
           <div className="mx-auto max-w-4xl">
             <div className="mb-14 text-center">
@@ -400,10 +386,7 @@ export default function MarketingPage() {
                   Pro
                 </p>
                 <p className="mt-3 text-4xl font-extrabold text-zinc-900">
-                  $
-                  {(pricesData.subscriptionPrices.monthly.amount / 100).toFixed(
-                    0,
-                  )}
+                  ${(prices.monthly.amount / 100).toFixed(0)}
                   <span className="text-lg font-normal text-zinc-400">/mo</span>
                 </p>
                 <p className="mt-1 text-sm text-zinc-400">billed monthly</p>
@@ -430,10 +413,7 @@ export default function MarketingPage() {
                   </span>
                 </div>
                 <p className="mt-3 text-4xl font-extrabold text-zinc-900">
-                  $
-                  {(pricesData.subscriptionPrices.yearly.amount / 100).toFixed(
-                    0,
-                  )}
+                  ${(prices.yearly.amount / 100).toFixed(0)}
                   <span className="text-lg font-normal text-zinc-400">/yr</span>
                 </p>
                 <p className="mt-1 text-sm text-zinc-400">billed yearly</p>

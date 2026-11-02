@@ -1,6 +1,8 @@
 import { DateTime } from "luxon"
 import type { SubscriptionStatus } from "./schema"
 
+export const FREE_JOB_LIMIT = 1
+
 const GRACE_PERIODS_MS: Partial<Record<SubscriptionStatus, number>> = {
   incomplete: 24 * 60 * 60 * 1000,
   past_due: 7 * 24 * 60 * 60 * 1000,

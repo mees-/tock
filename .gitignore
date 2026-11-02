@@ -2,8 +2,6 @@ node_modules/
 dist/
 .DS_Store
 *.local
-schema.graphql
-src/lib/graphql/graphql-env.d.ts
 .worktrees/
 .envrc
 .wrangler/

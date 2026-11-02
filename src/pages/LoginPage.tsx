@@ -2,30 +2,14 @@ import { useState } from "react"
 import { useLocation, Link } from "wouter"
 import { Clock } from "lucide-react"
 import { useAuthStore } from "@/lib/auth/auth-store"
-import { useMutation, useQuery } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
+import { api, unwrap } from "@/lib/api"
 import { usePostHog } from "posthog-js/react"
 import { inputCls } from "@/lib/styles"
 import { useCanSignup } from "@/lib/auth/canSignupHook"
 
-const LOGIN_MUTATION = graphql(`
-  mutation Login($input: LoginInput!) {
-    login(input: $input) {
-      token
-      refreshToken
-      user {
-        id
-        username
-        role
-      }
-    }
-  }
-`)
-
 export default function LoginPage() {
   const [, navigate] = useLocation()
   const setAuth = useAuthStore(s => s.setAuth)
-  const [, login] = useMutation(LOGIN_MUTATION)
   const posthog = usePostHog()
   const canSignup = useCanSignup()
 
@@ -38,18 +22,16 @@ export default function LoginPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const result = await login({ input: { username, password } })
-    setLoading(false)
-    if (result.error != null) {
-      const message =
-        result.error.graphQLErrors[0]?.message ?? result.error.message
-      setError(message ?? "Login failed")
+    let data
+    try {
+      data = await unwrap(
+        api.auth.login.$post({ json: { username, password } }),
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed")
       return
-    }
-    const data = result.data?.login
-    if (data == null) {
-      setError("Login failed")
-      return
+    } finally {
+      setLoading(false)
     }
     setAuth(data.token, data.refreshToken, data.user)
     posthog.identify(data.user.id.toString(), {

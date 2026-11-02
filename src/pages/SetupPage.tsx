@@ -2,32 +2,16 @@ import { useState } from "react"
 import { useLocation } from "wouter"
 import { Clock } from "lucide-react"
 import { useAuthStore } from "@/lib/auth/auth-store"
-import { useQuery, useMutation } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
+import { api, unwrap } from "@/lib/api"
 import { usePostHog } from "posthog-js/react"
 import { inputCls } from "@/lib/styles"
 import { Link } from "wouter"
 import { useCanSignup } from "@/lib/auth/canSignupHook"
 
-const REGISTER_MUTATION = graphql(`
-  mutation Register($input: RegisterInput!) {
-    register(input: $input) {
-      token
-      refreshToken
-      user {
-        id
-        username
-        role
-      }
-    }
-  }
-`)
-
 export default function SetupPage() {
   const [, navigate] = useLocation()
   const setAuth = useAuthStore(s => s.setAuth)
   const canSignup = useCanSignup()
-  const [, register] = useMutation(REGISTER_MUTATION)
   const posthog = usePostHog()
 
   const [username, setUsername] = useState("")
@@ -39,18 +23,16 @@ export default function SetupPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const result = await register({ input: { username, password } })
-    setLoading(false)
-    if (result.error != null) {
-      const message =
-        result.error.graphQLErrors[0]?.message ?? result.error.message
-      setError(message ?? "Setup failed")
+    let data
+    try {
+      data = await unwrap(
+        api.auth.register.$post({ json: { username, password } }),
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Setup failed")
       return
-    }
-    const data = result.data?.register
-    if (data == null) {
-      setError("Setup failed")
-      return
+    } finally {
+      setLoading(false)
     }
     setAuth(data.token, data.refreshToken, data.user)
     posthog.identify(data.user.id.toString(), {

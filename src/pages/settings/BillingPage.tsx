@@ -1,77 +1,38 @@
-import { useQuery, useMutation } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
+import { useQuery } from "@tanstack/react-query"
+import { api, unwrap } from "@/lib/api"
+import { usePrices } from "@/lib/queries"
 import { DateTime } from "luxon"
 import ErrorState from "@/components/ErrorState"
 import SettingsLayout from "@/components/SettingsLayout"
 
-const BillingQuery = graphql(`
-  query Billing {
-    me {
-      subscription {
-        tier
-        status
-        jobLimit
-        jobCount
-        isActive
-        gracePeriodEndsAt
-      }
-    }
-    subscriptionPrices {
-      monthly {
-        id
-        amount
-      }
-      yearly {
-        id
-        amount
-      }
-    }
-  }
-`)
-
-const CreateCheckoutSessionMutation = graphql(`
-  mutation CreateCheckoutSession($priceId: String!) {
-    createCheckoutSession(input: { priceId: $priceId }) {
-      url
-    }
-  }
-`)
-
-const CreateBillingPortalSessionMutation = graphql(`
-  mutation CreateBillingPortalSession {
-    createBillingPortalSession {
-      url
-    }
-  }
-`)
-
 export default function BillingPage() {
-  const [{ data, fetching, error }] = useQuery({ query: BillingQuery })
-  const [, createCheckoutSession] = useMutation(CreateCheckoutSessionMutation)
-  const [, createBillingPortalSession] = useMutation(
-    CreateBillingPortalSessionMutation,
-  )
-
-  const subscription = data?.me?.subscription
-  const prices = data?.subscriptionPrices
+  const {
+    data: subscription,
+    isPending,
+    error,
+  } = useQuery({
+    queryKey: ["me", "subscription"],
+    queryFn: () => unwrap(api.me.subscription.$get()),
+  })
+  const { data: prices } = usePrices()
 
   async function subscribe(priceId: string) {
-    const result = await createCheckoutSession({ priceId })
-    const url = result.data?.createCheckoutSession.url
-    if (url != null) window.location.href = url
+    const { url } = await unwrap(
+      api.billing.checkout.$post({ json: { priceId } }),
+    )
+    window.location.href = url
   }
 
   async function manageSubscription() {
-    const result = await createBillingPortalSession({})
-    const url = result.data?.createBillingPortalSession.url
-    if (url != null) window.location.href = url
+    const { url } = await unwrap(api.billing.portal.$post())
+    window.location.href = url
   }
 
   return (
     <SettingsLayout>
-      {error != null && data == null ? (
+      {error != null ? (
         <ErrorState title="Failed to load billing" message={error.message} />
-      ) : fetching && data == null ? (
+      ) : isPending ? (
         <p className="text-zinc-500">Loading…</p>
       ) : subscription?.tier === "pro" ? (
         <div className="space-y-4">
@@ -79,7 +40,9 @@ export default function BillingPage() {
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
               Your payment is past due. Pro access will be suspended on{" "}
               {subscription.gracePeriodEndsAt != null
-                ? DateTime.fromISO(subscription.gracePeriodEndsAt).toLocaleString(DateTime.DATE_FULL)
+                ? DateTime.fromISO(
+                    subscription.gracePeriodEndsAt,
+                  ).toLocaleString(DateTime.DATE_FULL)
                 : "soon"}
               .{" "}
               <button
@@ -94,39 +57,42 @@ export default function BillingPage() {
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
               Your subscription setup is incomplete. Pro access will expire on{" "}
               {subscription.gracePeriodEndsAt != null
-                ? DateTime.fromISO(subscription.gracePeriodEndsAt).toLocaleString(DateTime.DATE_FULL)
+                ? DateTime.fromISO(
+                    subscription.gracePeriodEndsAt,
+                  ).toLocaleString(DateTime.DATE_FULL)
                 : "soon"}
               .
             </div>
           )}
           {subscription.status === "canceled" && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
-              Your subscription has been canceled. Pro access will be removed shortly.
+              Your subscription has been canceled. Pro access will be removed
+              shortly.
             </div>
           )}
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Current plan
-              </p>
-              <p className="mt-1 text-xl font-bold text-zinc-900 dark:text-white">
-                Pro
-              </p>
-              {subscription.status != null && (
-                <p className="mt-1 text-sm text-zinc-500 capitalize dark:text-zinc-400">
-                  {subscription.status}
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                  Current plan
                 </p>
-              )}
+                <p className="mt-1 text-xl font-bold text-zinc-900 dark:text-white">
+                  Pro
+                </p>
+                {subscription.status != null && (
+                  <p className="mt-1 text-sm text-zinc-500 capitalize dark:text-zinc-400">
+                    {subscription.status}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={manageSubscription}
+                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Manage subscription
+              </button>
             </div>
-            <button
-              onClick={manageSubscription}
-              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 transition-colors dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Manage subscription
-            </button>
           </div>
-        </div>
         </div>
       ) : (
         <div className="space-y-6">

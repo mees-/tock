@@ -1,41 +1,29 @@
 import { useLocation } from "wouter"
-import { useMutation } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
-import { JobForm, serializeHeaders } from "@/components/JobForm"
+import { api, queryClient, unwrap } from "@/lib/api"
+import { JobForm, headersToRecord } from "@/components/JobForm"
 import type { JobFormValues } from "@/components/JobForm"
 import { usePostHog } from "posthog-js/react"
 
-const CreateJobMutation = graphql(`
-  mutation CreateJob($input: CreateJobInput!) {
-    createJob(input: $input) {
-      id
-    }
-  }
-`)
-
 export default function NewJobPage() {
   const [, navigate] = useLocation()
-  const [, createJob] = useMutation(CreateJobMutation)
   const posthog = usePostHog()
 
   async function handleSubmit(values: JobFormValues) {
-    const result = await createJob({
-      input: {
-        name: values.name,
-        description: values.description || undefined,
-        endpoint: values.endpoint,
-        method: values.method,
-        headers: serializeHeaders(values.headers),
-        body: values.body ?? undefined,
-        cronExpression: values.cronExpression,
-      },
-    })
-
-    if (result.error != null) {
-      throw new Error(
-        result.error.graphQLErrors[0]?.message ?? "Failed to create job",
-      )
-    }
+    const job = await unwrap(
+      api.jobs.$post({
+        json: {
+          name: values.name,
+          description: values.description,
+          endpoint: values.endpoint,
+          method: values.method,
+          headers: headersToRecord(values.headers),
+          body: values.body,
+          cronExpression: values.cronExpression,
+        },
+      }),
+    )
+    void queryClient.invalidateQueries({ queryKey: ["jobs"] })
+    void queryClient.invalidateQueries({ queryKey: ["me"] })
 
     posthog.capture("job_created", {
       method: values.method,
@@ -45,8 +33,7 @@ export default function NewJobPage() {
       has_description: values.description !== "",
     })
 
-    const id = result.data?.createJob.id
-    navigate(id != null ? `/jobs/${id}` : "/dashboard")
+    navigate(`/jobs/${job.id}`)
   }
 
   return (

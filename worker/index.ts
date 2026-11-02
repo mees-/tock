@@ -1,24 +1,14 @@
-import { createYoga } from "graphql-yoga"
 import { Hono } from "hono"
-import { createContext } from "./context"
+import { api } from "./api/index"
+import { handleError } from "./api/http"
 import { pruneJobRunsHourly } from "./retention"
 import { runDueJobs } from "./scheduler"
-import { schema } from "./schema/index"
 import { handleStripeWebhook } from "./stripe-webhook"
 
-const yoga = createYoga({
-  schema,
-  context: createContext,
-  graphiql: import.meta.env.DEV,
-  cors: {
-    origin: "*",
-    credentials: false,
-  },
-})
-
 const app = new Hono()
-app.on(["GET", "POST", "OPTIONS"], "/graphql", c => yoga.fetch(c.req.raw))
+app.route("/api", api)
 app.post("/stripe/webhook", handleStripeWebhook)
+app.onError(handleError)
 
 export default {
   fetch: app.fetch,

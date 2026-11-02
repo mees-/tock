@@ -1,11 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "graphql-schema": {
-      "source": "apollographql/skills",
-      "sourceType": "github",
-      "computedHash": "92b5f143d4d7f80a2fd5fe5421bccaa0ec35b1f9f4acdf3f71a019191cf3c4a4"
-    },
     "seo-audit": {
       "source": "coreyhaines31/marketingskills",
       "sourceType": "github",

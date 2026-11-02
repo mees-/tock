@@ -3,19 +3,20 @@
 An open-source cronjob-as-HTTP-requests scheduler.
 
 Schedule HTTP requests (webhooks, API calls, etc.) using cron expressions — with
-a GraphQL API, clean UI, and full run history.
+a REST API, clean UI, and full run history.
 
 ## Architecture
 
 Everything runs as a single Cloudflare Worker backed by D1, built with Vite and
 the Cloudflare Vite plugin.
 
-| Path         | Description                                                            |
-| ------------ | ---------------------------------------------------------------------- |
-| `src/`       | React + urql + gql-tada frontend, served as the Worker's static assets |
-| `worker/`    | The Worker: GraphQL API, Stripe webhook, minute Cron Trigger           |
-| `worker/db/` | Drizzle ORM schema + D1 client                                         |
-| `scripts/`   | Dev tooling (GraphQL schema generation, local Cron Trigger)            |
+| Path          | Description                                                                  |
+| ------------- | ---------------------------------------------------------------------------- |
+| `src/`        | React + TanStack Query frontend, served as the Worker's static assets        |
+| `worker/`     | The Worker: REST API, Stripe webhook, minute Cron Trigger                    |
+| `worker/api/` | Hono routes under `/api`; the frontend calls them through Hono's `hc` client |
+| `worker/db/`  | Drizzle ORM schema + D1 client                                               |
+| `scripts/`    | Dev tooling (local Cron Trigger)                                             |
 
 A Cron Trigger fires every minute and runs every active job whose cron
 expression matches that minute. Cron expressions use 5 fields (no seconds). The
@@ -44,10 +45,9 @@ pnpm install
 pnpm dev
 ```
 
-This creates the local D1 database, pushes the schema, regenerates
-`schema.graphql` on changes, and starts Vite at `http://localhost:5173`, which
-serves the web UI, the Worker (`/graphql`, with GraphiQL) and fires the
-scheduled handler every minute.
+This creates the local D1 database, pushes the schema, and starts Vite at
+`http://localhost:5173`, which serves the web UI, the Worker (`/api/*`) and
+fires the scheduled handler every minute.
 
 On first startup, visit `http://localhost:5173/setup` to create the admin
 account.

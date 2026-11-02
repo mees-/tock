@@ -1,84 +1,51 @@
-import { useEffect } from "react"
 import { Link, useLocation } from "wouter"
 import { Zap } from "lucide-react"
-import { useQuery, useMutation } from "urql"
+import { useQuery } from "@tanstack/react-query"
 import { Plus } from "lucide-react"
-import { graphql } from "@/lib/graphql/graphql"
+import { api, queryClient, unwrap } from "@/lib/api"
+import type { Job } from "@/lib/api"
 import { smallestCronIntervalMs } from "@/lib/cronInterval"
-import { isJobStatus } from "@/lib/typeGuards"
 import StatsCard from "@/components/StatsCard"
 import StatusBadge from "@/components/StatusBadge"
 import { usePostHog } from "posthog-js/react"
 
-const DashboardQuery = graphql(`
-  query Dashboard {
-    me {
-      stats {
-        totalJobs
-        activeJobs
-        totalRunsToday
-        successRateLast24h
-        avgDurationLast24h
-      }
-      subscription {
-        tier
-        jobLimit
-        jobCount
-      }
-    }
-    jobs {
-      id
-      name
-      description
-      endpoint
-      method
-      cronExpression
-      isActive
-      status
-    }
-  }
-`)
-
-const ToggleJobMutation = graphql(`
-  mutation ToggleJob($id: Int!) {
-    toggleJob(id: $id) {
-      id
-      isActive
-    }
-  }
-`)
+function pollIntervalMs(jobs: Job[] = []) {
+  return smallestCronIntervalMs(
+    jobs.filter(j => j.isActive).map(j => j.cronExpression),
+  )
+}
 
 export default function DashboardPage() {
   const [, navigate] = useLocation()
-  const [{ data, fetching }, reexecuteQuery] = useQuery({
-    query: DashboardQuery,
-  })
-  const [, toggleJob] = useMutation(ToggleJobMutation)
   const posthog = usePostHog()
 
-  const jobs = data?.jobs ?? []
-  const activeExpressions = jobs
-    .filter(j => j.isActive)
-    .map(j => j.cronExpression)
-  const intervalMs = smallestCronIntervalMs(activeExpressions)
+  const jobsQuery = useQuery({
+    queryKey: ["jobs"],
+    queryFn: () => unwrap(api.jobs.$get()),
+    refetchInterval: query => pollIntervalMs(query.state.data),
+  })
+  const jobs = jobsQuery.data ?? []
+  const intervalMs = pollIntervalMs(jobs)
 
-  useEffect(() => {
-    const refetch = () => reexecuteQuery({ requestPolicy: "network-only" })
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") refetch()
-    }, intervalMs)
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") refetch()
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener("visibilitychange", onVisibilityChange)
-    }
-  }, [intervalMs, reexecuteQuery])
+  const { data: stats } = useQuery({
+    queryKey: ["me", "stats"],
+    queryFn: () => unwrap(api.me.stats.$get()),
+    refetchInterval: intervalMs,
+  })
+  const { data: subscription } = useQuery({
+    queryKey: ["me", "subscription"],
+    queryFn: () => unwrap(api.me.subscription.$get()),
+  })
 
-  const stats = data?.me?.stats
-  const subscription = data?.me.subscription
+  async function toggleJob(id: number) {
+    const job = await unwrap(
+      api.jobs[":id"].toggle.$post({ param: { id: String(id) } }),
+    )
+    posthog.capture("job_toggled", { job_id: id, active: job.isActive })
+    void queryClient.invalidateQueries({ queryKey: ["jobs"] })
+    void queryClient.invalidateQueries({ queryKey: ["me", "stats"] })
+  }
+
   const atJobLimit =
     subscription?.tier === "free" &&
     subscription.jobLimit != null &&
@@ -119,7 +86,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {fetching && data == null ? (
+      {jobsQuery.isPending ? (
         <p className="text-zinc-500">Loading…</p>
       ) : (
         <>
@@ -206,24 +173,13 @@ export default function DashboardPage() {
                         {job.cronExpression}
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge
-                          status={
-                            isJobStatus(job.status) ? job.status : "active"
-                          }
-                        />
+                        <StatusBadge status={job.status} />
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
-                          onClick={async e => {
+                          onClick={e => {
                             e.stopPropagation()
-                            const result = await toggleJob({ id: job.id })
-                            if (result.data != null) {
-                              posthog.capture("job_toggled", {
-                                job_id: job.id,
-                                active: result.data.toggleJob.isActive,
-                              })
-                            }
-                            reexecuteQuery({ requestPolicy: "network-only" })
+                            void toggleJob(job.id)
                           }}
                           className="cursor-pointer rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
                         >

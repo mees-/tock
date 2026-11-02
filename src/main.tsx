@@ -1,15 +1,15 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import { Provider as UrqlProvider } from "urql"
+import { QueryClientProvider } from "@tanstack/react-query"
 import { PostHogProvider } from "@posthog/react"
-import { client } from "@/lib/graphql/client"
+import { queryClient } from "@/lib/api"
 import { env } from "@/env"
 import App from "./App"
 import "./index.css"
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <UrqlProvider value={client}>
+    <QueryClientProvider client={queryClient}>
       <PostHogProvider
         apiKey={env.VITE_PUBLIC_POSTHOG_KEY}
         options={{
@@ -19,6 +19,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       >
         <App />
       </PostHogProvider>
-    </UrqlProvider>
+    </QueryClientProvider>
   </React.StrictMode>,
 )

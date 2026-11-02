@@ -44,13 +44,6 @@ export default defineConfig({
   resolve: {
     alias: { "@": resolve(import.meta.dirname, "./src") },
   },
-  environments: {
-    tock: {
-      // Match wrangler's resolution: graphql-yoga's fetch ponyfill only uses
-      // the runtime's Response via its package.json "browser" entry.
-      resolve: { mainFields: ["browser", "module", "main"] },
-    },
-  },
   server: {
     port: 5173,
   },

@@ -1,19 +1,11 @@
 import { Link, useRoute } from "wouter"
 import { PropsWithChildren } from "react"
-import { useQuery } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
-
-const CommunityEditionQuery = graphql(`
-  query CommunityEdition {
-    communityEdition
-  }
-`)
+import { useConfig } from "@/lib/queries"
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
   const [onUser] = useRoute("/settings/user")
   const [onBilling] = useRoute("/settings/billing")
-  const [{ data }] = useQuery({ query: CommunityEditionQuery })
-  const isCommunityEdition = data?.communityEdition ?? false
+  const isCommunityEdition = useConfig().data?.communityEdition ?? false
 
   return (
     <div>

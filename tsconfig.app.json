@@ -8,14 +8,8 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "plugins": [
-      {
-        "name": "gql.tada/ts-plugin",
-        "schema": "./schema.graphql",
-        "tadaOutputLocation": "./src/lib/graphql/graphql-env.d.ts"
-      }
-    ]
+    }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.worker.json" }]
 }

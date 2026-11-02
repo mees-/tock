@@ -1,20 +1,10 @@
 import { useState } from "react"
-import { useMutation } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
+import { api, unwrap } from "@/lib/api"
 import { useAuthStore } from "@/lib/auth/auth-store"
 import SettingsLayout from "@/components/SettingsLayout"
 
-const ChangePasswordMutation = graphql(`
-  mutation ChangePassword($currentPassword: String!, $newPassword: String!) {
-    changePassword(
-      input: { currentPassword: $currentPassword, newPassword: $newPassword }
-    )
-  }
-`)
-
 export default function UserSettingsPage() {
   const user = useAuthStore(s => s.user)
-  const [, changePassword] = useMutation(ChangePasswordMutation)
 
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -35,19 +25,22 @@ export default function UserSettingsPage() {
     }
 
     setSubmitting(true)
-    const result = await changePassword({ currentPassword, newPassword })
-    setSubmitting(false)
-
-    if (result.error != null) {
-      setStatus({
-        type: "error",
-        message: result.error.graphQLErrors[0]?.message ?? result.error.message,
-      })
-    } else {
+    try {
+      await unwrap(
+        api.me.password.$put({ json: { currentPassword, newPassword } }),
+      )
       setStatus({ type: "success", message: "Password updated successfully" })
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
+    } catch (err) {
+      setStatus({
+        type: "error",
+        message:
+          err instanceof Error ? err.message : "Failed to update password",
+      })
+    } finally {
+      setSubmitting(false)
     }
   }
 

@@ -1,15 +1,3 @@
-import { useQuery } from "urql"
-import { graphql } from "../graphql/graphql"
+import { useConfig } from "@/lib/queries"
 
-const CanSignupQuery = graphql(`
-  query CanSignup {
-    canSignup
-  }
-`)
-
-export const useCanSignup = () => {
-  const [{ data: canSignupData }] = useQuery({ query: CanSignupQuery })
-  const canSignup = canSignupData?.canSignup ?? true
-
-  return canSignup
-}
+export const useCanSignup = () => useConfig().data?.canSignup ?? true

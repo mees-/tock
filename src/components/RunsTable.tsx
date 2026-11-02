@@ -1,65 +1,16 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { useQuery } from "urql"
-import { graphql } from "@/lib/graphql/graphql"
-import { client } from "@/lib/graphql/client"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { api, unwrap } from "@/lib/api"
+import type { JobRun } from "@/lib/api"
 import { Check, Copy, Loader2 } from "lucide-react"
 import { parseJson } from "@/lib/parseJson"
-import { isRunStatus } from "@/lib/typeGuards"
 import StatusBadge from "./StatusBadge"
 import AnimatedNumber from "./AnimatedNumber"
 import { usePostHog } from "posthog-js/react"
 
 const PAGE_SIZE = 100
-
-const JobRunsQuery = graphql(`
-  query JobRuns(
-    $jobId: Int!
-    $first: Int!
-    $after: String
-    $statuses: [String!]
-  ) {
-    job(id: $jobId) {
-      runs(first: $first, after: $after, statuses: $statuses) {
-        edges {
-          cursor
-          node {
-            id
-            triggeredAt
-            status
-            httpStatusCode
-            durationMs
-            responseBody
-            responseHeaders
-            errorMessage
-          }
-        }
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-      }
-    }
-  }
-`)
-
-export interface Run {
-  id: number
-  triggeredAt: string
-  status: string
-  httpStatusCode?: number | null
-  durationMs?: number | null
-  responseBody?: string | null
-  responseHeaders?: string | null
-  errorMessage?: string | null
-}
+const LOAD_MORE_THRESHOLD = 10
 
 function tryFormatJson(raw: string): string {
   try {
@@ -100,7 +51,7 @@ function RunRow({
   isExpanded,
   onToggle,
 }: {
-  run: Run
+  run: JobRun
   jobId: number
   isExpanded: boolean
   onToggle: () => void
@@ -124,9 +75,7 @@ function RunRow({
           })}
         </div>
         <div className="px-4">
-          <StatusBadge
-            status={isRunStatus(run.status) ? run.status : "failure"}
-          />
+          <StatusBadge status={run.status} />
         </div>
         <div className="px-4 text-sm">
           {run.httpStatusCode != null ? (
@@ -225,83 +174,35 @@ export default function RunsTable({
   statuses,
 }: {
   jobId: number
-  pollIntervalMs?: number
   statuses?: string[]
 }) {
-  const [allRuns, setAllRuns] = useState<Run[]>([])
-  const [endCursor, setEndCursor] = useState<string | null>(null)
-  const [hasNextPage, setHasNextPage] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const parentRef = useRef<HTMLDivElement>(null)
+  const status =
+    statuses != null && statuses.length > 0
+      ? statuses.slice().sort().join(",")
+      : undefined
 
-  // Stable key for current filter — reset pagination when statuses change
-  const statusesKey = useMemo(
-    () => (statuses != null ? statuses.slice().sort().join(",") : ""),
-    [statuses],
-  )
-  useEffect(() => {
-    setAllRuns([])
-    setEndCursor(null)
-    setHasNextPage(true)
-    setExpandedId(null)
-  }, [statusesKey])
+  useEffect(() => setExpandedId(null), [status])
 
-  // Initial page fetch
-  const [{ data, fetching }] = useQuery({
-    query: JobRunsQuery,
-    variables: { jobId, first: PAGE_SIZE, statuses: statuses ?? null },
-    requestPolicy: "cache-and-network",
-  })
-
-  useEffect(() => {
-    if (data?.job == null) return
-    const connection = data.job.runs
-    const runs = connection.edges.map(e => e.node)
-    setAllRuns(prev => {
-      // Merge: keep any older pages already loaded beyond the first page
-      const firstPageIds = new Set(runs.map(r => r.id))
-      const olderRuns = prev.filter(r => !firstPageIds.has(r.id))
-      // Only keep older runs that come after the first page (lower ids)
-      const lastFirstPageId =
-        runs.length > 0 ? runs[runs.length - 1]!.id : Infinity
-      const beyondFirstPage = olderRuns.filter(r => r.id < lastFirstPageId)
-      return [...runs, ...beyondFirstPage]
+  const { data, isPending, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useInfiniteQuery({
+      queryKey: ["jobs", jobId, "runs", status],
+      queryFn: ({ pageParam }) =>
+        unwrap(
+          api.jobs[":id"].runs.$get({
+            param: { id: String(jobId) },
+            query: { limit: String(PAGE_SIZE), before: pageParam, status },
+          }),
+        ),
+      initialPageParam: undefined as string | undefined,
+      getNextPageParam: page =>
+        page.nextCursor == null ? undefined : String(page.nextCursor),
     })
-
-    setEndCursor(connection.pageInfo.endCursor ?? null)
-    setHasNextPage(connection.pageInfo.hasNextPage)
-  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadMore = useCallback(async () => {
-    if (!hasNextPage || isLoadingMore || endCursor == null) return
-    setIsLoadingMore(true)
-    try {
-      // Use cache-first for older pages since committed runs are immutable
-      const result = await client
-        .query(
-          JobRunsQuery,
-          {
-            jobId,
-            first: PAGE_SIZE,
-            after: endCursor,
-            statuses: statuses ?? null,
-          },
-          {
-            requestPolicy: "cache-first",
-          },
-        )
-        .toPromise()
-      const connection = result.data?.job?.runs
-      if (connection == null) return
-      const newRuns = connection.edges.map(e => e.node)
-      setAllRuns(prev => [...prev, ...newRuns])
-      setEndCursor(connection.pageInfo.endCursor ?? null)
-      setHasNextPage(connection.pageInfo.hasNextPage)
-    } finally {
-      setIsLoadingMore(false)
-    }
-  }, [jobId, endCursor, hasNextPage, isLoadingMore, statuses])
+  const allRuns = useMemo(
+    () => data?.pages.flatMap(page => page.runs) ?? [],
+    [data],
+  )
 
   const virtualizer = useVirtualizer({
     count: allRuns.length,
@@ -310,21 +211,26 @@ export default function RunsTable({
     overscan: PAGE_SIZE / 5,
   })
 
-  // Load more when scrolling near bottom
   const virtualItems = virtualizer.getVirtualItems()
-  const lastItem = virtualItems[virtualItems.length - 1]
+  const lastIndex = virtualItems[virtualItems.length - 1]?.index
   useEffect(() => {
     if (
-      lastItem != null &&
-      lastItem.index >= allRuns.length - 10 &&
+      lastIndex != null &&
+      lastIndex >= allRuns.length - LOAD_MORE_THRESHOLD &&
       hasNextPage &&
-      !isLoadingMore
+      !isFetchingNextPage
     ) {
-      void loadMore()
+      void fetchNextPage()
     }
-  }, [lastItem?.index, allRuns.length, hasNextPage, isLoadingMore, loadMore])
+  }, [
+    lastIndex,
+    allRuns.length,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ])
 
-  if (fetching && allRuns.length === 0) {
+  if (isPending) {
     return (
       <p className="py-8 text-center text-sm text-zinc-500">Loading runs…</p>
     )
@@ -391,7 +297,7 @@ export default function RunsTable({
           })}
         </div>
 
-        {isLoadingMore && (
+        {isFetchingNextPage && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
             <span className="ml-2 text-sm text-zinc-400">Loading more…</span>

@@ -1,7 +1,15 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 export const USER_ROLES = ["admin", "member"] as const
-export const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const
+export const HTTP_METHODS = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS",
+] as const
 export const JOB_RUN_STATUSES = ["success", "failure", "timeout"] as const
 export const SUBSCRIPTION_STATUSES = [
   "active",
