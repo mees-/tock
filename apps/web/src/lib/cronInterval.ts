@@ -6,9 +6,15 @@ const MS_PER_MONTH = 2_592_000_000
 
 // 6-field cron format: sec min hour day month weekday
 // Unit in ms for each positional field (weekday skipped — it's a filter, not a frequency)
-const FIELD_UNITS_MS = [MS_PER_SECOND, MS_PER_MINUTE, MS_PER_HOUR, MS_PER_DAY, MS_PER_MONTH]
+const FIELD_UNITS_MS = [
+  MS_PER_SECOND,
+  MS_PER_MINUTE,
+  MS_PER_HOUR,
+  MS_PER_DAY,
+  MS_PER_MONTH,
+]
 
-const MIN_INTERVAL_MS = 10 * MS_PER_SECOND // floor: 10 seconds
+const MIN_INTERVAL_MS = MS_PER_MINUTE // floor: the scheduler runs once per minute
 const MAX_INTERVAL_MS = MS_PER_HOUR // ceiling: 1 hour (for very infrequent jobs)
 
 function fieldIntervalMs(field: string, unitMs: number): number {
@@ -37,9 +43,12 @@ function fieldIntervalMs(field: string, unitMs: number): number {
   return Infinity // specific single value — doesn't cycle at this level
 }
 
-/** Returns the approximate repeat interval of a 6-field cron expression in ms. */
+const FIVE_FIELD_SECONDS = "0"
+
+/** Returns the approximate repeat interval of a 5- or 6-field cron expression in ms. */
 export function cronIntervalMs(expr: string): number {
-  const fields = expr.trim().split(/\s+/)
+  const parts = expr.trim().split(/\s+/)
+  const fields = parts.length === 5 ? [FIVE_FIELD_SECONDS, ...parts] : parts
   if (fields.length !== 6) return MS_PER_MINUTE
 
   let smallest = Infinity

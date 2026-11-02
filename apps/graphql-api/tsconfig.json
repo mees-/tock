@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["bun"],
+    "types": ["@cloudflare/workers-types", "node"],
     "paths": {
       "database": ["../../packages/database/src/index.ts"],
       "auth": ["../../packages/auth/src/index.ts"]

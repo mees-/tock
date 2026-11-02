@@ -63,10 +63,18 @@ export default function DashboardPage() {
   const intervalMs = smallestCronIntervalMs(activeExpressions)
 
   useEffect(() => {
+    const refetch = () => reexecuteQuery({ requestPolicy: "network-only" })
     const timer = setInterval(() => {
-      reexecuteQuery({ requestPolicy: "network-only" })
+      if (document.visibilityState === "visible") refetch()
     }, intervalMs)
-    return () => clearInterval(timer)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refetch()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
   }, [intervalMs, reexecuteQuery])
 
   const stats = data?.me?.stats

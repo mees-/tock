@@ -10,3 +10,5 @@ schema.graphql
 src/lib/graphql/graphql-env.d.ts
 .worktrees/
 .envrc
+.wrangler/
+.dev.vars*

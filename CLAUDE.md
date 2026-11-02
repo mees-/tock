@@ -6,28 +6,37 @@ tock is an open-source cronjob-as-HTTP-requests scheduler.
 
 ```
 apps/
-  graphql-api/   # GraphQL API (Pothos + Drizzle), runs with Bun
-  cron-runner/   # Standalone cron scheduler, runs with Bun
+  graphql-api/   # Cloudflare Worker: GraphQL API (Pothos + Drizzle), Stripe
+                 # webhook, minute Cron Trigger scheduler, serves web/dist
   web/           # React + Vite frontend (urql + gql-tada)
 packages/
-  database/      # Drizzle schema + Postgres client (source-only, not built)
+  database/      # Drizzle schema + D1 client (source-only, not built)
   auth/          # JWT sign/verify + password hashing (source-only)
 ```
+
+Everything deploys as one Worker (`apps/graphql-api/wrangler.jsonc`) with a D1
+binding `DB`. There is no background process: a `* * * * *` Cron Trigger calls
+`runDueJobs` in `apps/graphql-api/src/scheduler.ts`. Cron expressions must have
+5 fields.
 
 ## Commands
 
 ```bash
-pnpm dev                                       # Start all services concurrently
+pnpm dev                                       # Local D1 + wrangler dev + vite + cron helper
 pnpm typecheck                                 # Typecheck all apps/packages
-docker-compose up -d                           # Start local Postgres
-pnpm --filter database push-dev               # Push schema changes to DB
-pnpm --filter database studio                 # Open Drizzle Studio
+pnpm setup-db                                  # Create local D1 and push schema
+pnpm --filter database push-dev               # Push schema changes to local D1
+pnpm --filter database studio                 # Open Drizzle Studio (local D1)
+pnpm run deploy                                # Build web and deploy the Worker
 ```
 
 ## Code guidelines
 
 - Never use `process.env` directly. Use an `env.ts` file per app/package (parse
-  with Zod).
+  with Zod). Worker code reads bindings via
+  `import { env } from "cloudflare:workers"` inside `env.ts`.
+- Worker code runs on workerd, not Bun: no `Bun.*` APIs in
+  `apps/graphql-api/src` or `packages/*/src`. Bun is only used for dev scripts.
 - Prefer explicit null checks (`if (x == null)`) over boolean coercion
   (`if (!x)`).
 - Avoid classes; prefer functions.
@@ -36,7 +45,8 @@ pnpm --filter database studio                 # Open Drizzle Studio
 ## Packages
 
 Packages in `packages/*` are **never built**. They are included directly as
-TypeScript source at runtime by Bun, and for type-checking via tsconfig `paths`.
+TypeScript source and bundled by wrangler, and type-checked via tsconfig
+`paths`.
 
 ## GraphQL schema changes
 
@@ -61,7 +71,9 @@ responseBody: t.exposeString('responseBody', { nullable: true }),
 
 ## Database
 
-Uses Drizzle ORM with `postgres.js` for PostgreSQL.
+Uses Drizzle ORM with Cloudflare D1 (SQLite). Local dev uses the Miniflare D1
+file under `apps/graphql-api/.wrangler/`; `drizzle.config.ts` points at it.
+`drizzle.remote.config.ts` targets the production D1 over HTTP (`migrate`).
 
 **Never generate drizzle migrations directly.** Always use:
 
@@ -73,8 +85,9 @@ This pushes schema changes directly to the local development database.
 
 ## Auth
 
-- Username + password auth, passwords hashed with `Bun.password.hash()`
-  (bcrypt).
+- Username + password auth, passwords hashed with PBKDF2-SHA256 via WebCrypto
+  (`packages/auth/src/password.ts`). Legacy argon2id hashes are verified and
+  rehashed on login.
 - Short-lived access tokens (15 min) via JWT (`jose`).
 - Refresh tokens (7 days) stored in httpOnly cookies.
 - Auth REST endpoints at `/api/auth/*` on the graphql-api server.

@@ -12,6 +12,9 @@ const SEOExcludedPaths = [
   "/setup",
 ]
 
+// index.html needs the absolute site URL for canonical and Open Graph tags.
+process.env.VITE_SITE_URL = process.env.BASE_URL
+
 export default defineConfig({
   plugins: [
     react(),
@@ -30,7 +33,6 @@ export default defineConfig({
       generateRobotsTxt: true,
     }),
   ],
-  base: process.env.BASE_URL,
   resolve: {
     alias: { "@": resolve(__dirname, "./src") },
   },

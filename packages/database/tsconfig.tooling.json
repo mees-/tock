@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["bun"]
+  },
+  "include": [
+    "scripts",
+    "drizzle.config.ts",
+    "drizzle.remote.config.ts",
+    "remote-env.ts"
+  ]
+}

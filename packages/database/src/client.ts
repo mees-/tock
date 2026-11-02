@@ -1,8 +1,16 @@
-import { drizzle } from "drizzle-orm/postgres-js"
-import postgres from "postgres"
-import { env } from "./env"
+import { drizzle } from "drizzle-orm/d1"
+import { getEnv } from "./env"
 import * as schema from "./schema"
 
-const client = postgres(env.DATABASE_URL)
+function createDb() {
+  return drizzle(getEnv().DB, { schema, casing: "snake_case" })
+}
 
-export const db = drizzle({ client, schema, casing: "snake_case" })
+export type Database = ReturnType<typeof createDb>
+
+let instance: Database | undefined
+
+export function getDb() {
+  instance ??= createDb()
+  return instance
+}

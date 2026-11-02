@@ -13,20 +13,20 @@
   },
   "scripts": {
     "dev": "pnpm run studio",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tooling.json",
     "push-dev": "drizzle-kit push",
     "generate-migration": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "studio": "drizzle-kit studio"
+    "migrate": "drizzle-kit migrate --config drizzle.remote.config.ts",
+    "studio": "drizzle-kit studio",
+    "export-postgres": "bun scripts/export-postgres-to-d1.ts"
   },
   "dependencies": {
-    "dotenv": "^17.3.1",
     "drizzle-orm": "catalog:",
     "luxon": "catalog:",
-    "postgres": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
     "@types/bun": "catalog:",
     "@types/luxon": "catalog:",
     "drizzle-kit": "beta",

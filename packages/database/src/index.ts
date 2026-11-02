@@ -1,4 +1,5 @@
-export { db } from "./client"
+export { getDb } from "./client"
+export type { Database } from "./client"
 export {
   users,
   jobs,
@@ -20,4 +21,5 @@ export type {
   JobRunStatus,
   SubscriptionStatus,
 } from "./schema"
+export { jobRunRetentionCutoffs } from "./retention"
 export { isProAccessActive, gracePeriodEndsAt } from "./subscription"

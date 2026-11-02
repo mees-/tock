@@ -31,7 +31,11 @@ const METHODS = [
   "OPTIONS",
 ] as const
 
+// The scheduler runs once per minute, so seconds fields aren't supported.
+const CRON_FIELD_COUNT = 5
+
 function isValidCron(s: string) {
+  if (s.trim().split(/\s+/).length !== CRON_FIELD_COUNT) return false
   try {
     cronstrue.toString(s.trim())
     new Cron(s, { paused: true }, () => {})
@@ -46,7 +50,9 @@ const schema = z.object({
   description: z.string(),
   endpoint: z.httpUrl(),
   method: z.enum(METHODS, { error: "Invalid HTTP method" }),
-  cronExpression: z.string().refine(isValidCron, "Invalid cron expression"),
+  cronExpression: z
+    .string()
+    .refine(isValidCron, "Invalid cron expression (use 5 fields)"),
   headers: z.array(z.object({ key: z.string(), value: z.string() })),
   body: z.string().nullable(),
 })

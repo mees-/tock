@@ -1,9 +1,21 @@
 import { builder } from "../builder"
 import { JobRef } from "../types/job"
 import { AuthPayloadRef } from "../types/user"
-import { jobs, users, isProAccessActive, type HttpMethod, type DbUser } from "database"
+import {
+  jobs,
+  users,
+  isProAccessActive,
+  type HttpMethod,
+  type DbUser,
+} from "database"
 import { eq, and, sql, count } from "drizzle-orm"
-import { signJWT, verifyJWT } from "auth"
+import {
+  hashPassword,
+  passwordNeedsRehash,
+  signJWT,
+  verifyJWT,
+  verifyPassword,
+} from "auth"
 import { env } from "../../env"
 import {
   ValidationError,
@@ -16,6 +28,7 @@ import { canSignup } from "../queries"
 import { GraphQLError } from "graphql/error"
 import { DateTime } from "luxon"
 import { getStripe } from "../../stripe"
+import { isValidCronExpression } from "../../cron"
 
 const SIGNUP_SCHEMA = z.object({
   username: z
@@ -68,8 +81,15 @@ builder.mutationField("login", t =>
 
       if (user == null) throw new AuthenticationError("Invalid credentials")
 
-      const valid = await Bun.password.verify(input.password, user.passwordHash)
+      const valid = await verifyPassword(input.password, user.passwordHash)
       if (!valid) throw new AuthenticationError("Invalid credentials")
+
+      if (passwordNeedsRehash(user.passwordHash)) {
+        await ctx.db
+          .update(users)
+          .set({ passwordHash: await hashPassword(input.password) })
+          .where(eq(users.id, user.id))
+      }
 
       return buildAuthPayload(user)
     },
@@ -129,7 +149,7 @@ builder.mutationField("register", t =>
       if (existing[0] != null)
         throw new ValidationError("Username already taken")
 
-      const passwordHash = await Bun.password.hash(input.password)
+      const passwordHash = await hashPassword(input.password)
 
       const [user] = await ctx.db
         .insert(users)
@@ -168,13 +188,13 @@ builder.mutationField("changePassword", t =>
 
       if (user == null) throw new AuthenticationError("User not found")
 
-      const valid = await Bun.password.verify(
+      const valid = await verifyPassword(
         input.currentPassword,
         user.passwordHash,
       )
       if (!valid) throw new AuthenticationError("Incorrect current password")
 
-      const passwordHash = await Bun.password.hash(input.newPassword)
+      const passwordHash = await hashPassword(input.newPassword)
       await ctx.db
         .update(users)
         .set({ passwordHash })
@@ -200,6 +220,16 @@ const jobInputFields = (t: MutationFieldBuilder) => ({
   body: t.input.string({ required: false }),
   cronExpression: t.input.string({ required: true }),
 })
+
+function parseCronExpression(raw: string) {
+  const expression = raw.trim()
+  if (!isValidCronExpression(expression)) {
+    throw new ValidationError(
+      "Invalid cron expression. Use 5 fields: minute hour day month weekday",
+    )
+  }
+  return expression
+}
 
 function parseHeaders(raw: string | null | undefined): Record<string, string> {
   if (raw == null) return {}
@@ -240,7 +270,7 @@ builder.mutationField("createJob", t =>
           method: input.method as HttpMethod,
           headers: parseHeaders(input.headers),
           body: input.body ?? null,
-          cronExpression: input.cronExpression,
+          cronExpression: parseCronExpression(input.cronExpression),
         })
         .returning()
 
@@ -275,7 +305,7 @@ builder.mutationField("updateJob", t =>
       if (input.headers != null) updates.headers = parseHeaders(input.headers)
       if (input.body !== undefined) updates.body = input.body
       if (input.cronExpression != null)
-        updates.cronExpression = input.cronExpression
+        updates.cronExpression = parseCronExpression(input.cronExpression)
 
       const [job] = await ctx.db
         .update(jobs)

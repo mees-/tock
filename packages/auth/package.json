@@ -15,10 +15,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "jose": "catalog:"
+    "jose": "catalog:",
+    "@noble/hashes": "^2.4.0"
   },
   "devDependencies": {
-    "@types/bun": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
     "typescript": "catalog:"
   }
 }

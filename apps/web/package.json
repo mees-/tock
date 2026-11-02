@@ -8,9 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "gql-tada": "gql-tada generate-output",
-    "start": "serve -s dist -p $PORT -c ../serve.json",
-    "deploy": "wrangler deploy"
+    "gql-tada": "gql-tada generate-output"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -30,7 +28,6 @@
     "react-dom": "^19.2.4",
     "react-hook-form": "^7.71.2",
     "react-hotkeys-hook": "^5.2.4",
-    "serve": "^14.2.6",
     "urql": "^5.0.1",
     "usehooks-ts": "^3.1.1",
     "wouter": "^3.9.0",

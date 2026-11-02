@@ -409,7 +409,7 @@ export default function MarketingPage() {
                 <p className="mt-1 text-sm text-zinc-400">billed monthly</p>
                 <ul className="mt-6 flex-1 space-y-2.5 text-sm text-zinc-600">
                   <PricingFeature label="Unlimited cron jobs" />
-                  <PricingFeature label="Full run history" />
+                  <PricingFeature label="30-day run history (90 for failures)" />
                 </ul>
                 <Link
                   href="/login"
@@ -439,7 +439,7 @@ export default function MarketingPage() {
                 <p className="mt-1 text-sm text-zinc-400">billed yearly</p>
                 <ul className="mt-6 flex-1 space-y-2.5 text-sm text-zinc-600">
                   <PricingFeature label="Unlimited cron jobs" />
-                  <PricingFeature label="Full run history" />
+                  <PricingFeature label="30-day run history (90 for failures)" />
                 </ul>
                 <Link
                   href="/login"

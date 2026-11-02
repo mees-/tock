@@ -7,21 +7,27 @@ a GraphQL API, clean UI, and full run history.
 
 ## Architecture
 
-| Service             | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `apps/graphql-api`  | Hono + graphql-yoga + Pothos GraphQL API            |
-| `apps/cron-runner`  | Standalone cron scheduler (reads DB, executes jobs) |
-| `apps/web`          | React + Vite + urql + gql-tada frontend             |
-| `packages/database` | Drizzle ORM schema + Postgres client (source-only)  |
-| `packages/auth`     | JWT sign/verify + password hashing (source-only)    |
+Everything runs as a single Cloudflare Worker backed by D1.
+
+| Path                | Description                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `apps/graphql-api`  | The Worker: GraphQL API, Stripe webhook, minute Cron Trigger, serves the web build |
+| `apps/web`          | React + Vite + urql + gql-tada frontend (static assets)                            |
+| `packages/database` | Drizzle ORM schema + D1 client (source-only)                                       |
+| `packages/auth`     | JWT sign/verify + password hashing (source-only)                                   |
+
+A Cron Trigger fires every minute and runs every active job whose cron
+expression matches that minute. Cron expressions use 5 fields (no seconds). The
+hosted edition keeps successful runs for 30 days and failed runs for 90 days;
+community edition installs keep full history.
 
 ## Quick start
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) ≥ 1.1
+- [Bun](https://bun.sh) ≥ 1.1 (dev scripts)
 - [pnpm](https://pnpm.io) ≥ 9
-- [Docker](https://docker.com) (for Postgres)
+- Node.js ≥ 22.5 (drizzle-kit uses `node:sqlite` for the local D1 database)
 
 ### 1. Clone & install
 
@@ -31,26 +37,25 @@ cd tock
 pnpm install
 ```
 
-### 2. Start Postgres
-
-```bash
-docker-compose up -d
-```
-
-### 3. Start all services
+### 2. Start everything
 
 ```bash
 pnpm dev
 ```
 
-- GraphQL API + GraphiQL: `http://localhost:4000/graphql`
+This creates the local D1 database, pushes the schema, and starts:
+
+- Worker (GraphQL API + GraphiQL): `http://localhost:4000/graphql`
 - Web UI: `http://localhost:5173`
+- A helper that fires the scheduled handler every minute (`wrangler dev` does
+  not run Cron Triggers on its own)
 
 On first startup, visit `http://localhost:5173/setup` to create the admin
 account.
 
-> **Note:** The repo ships with `COMMUNITY_EDITION=true` in all `.env.local`
-> files, so Stripe is disabled and no additional setup is needed.
+> **Note:** The repo ships with `COMMUNITY_EDITION=true` in
+> `apps/graphql-api/.env.local`, so Stripe is disabled and no additional setup
+> is needed.
 
 ---
 
@@ -64,6 +69,7 @@ at the repo root via [direnv](https://direnv.net):
 
 ```bash
 # .envrc (never committed — add your own values)
+export CLOUDFLARE_INCLUDE_PROCESS_ENV=true
 export COMMUNITY_EDITION=false
 export STRIPE_SECRET_KEY=sk_test_...
 export STRIPE_PRO_MONTHLY_PRICE_ID=price_...
@@ -76,12 +82,31 @@ export STRIPE_WEBHOOK_SECRET=whsec_...
 direnv allow
 ```
 
-Bun won't overwrite environment variables that are already set in the shell, so
-these values take precedence over the defaults in `.env.local` automatically —
-no file editing needed.
+`CLOUDFLARE_INCLUDE_PROCESS_ENV` makes `wrangler dev` pass shell variables to
+the Worker, and they take precedence over `.env.local`.
 
-To forward Stripe events to your local webhook handler:
+To forward Stripe events to the local Worker:
 
 ```bash
-stripe listen --forward-to localhost:4001/webhook
+stripe listen --forward-to localhost:4000/stripe/webhook
 ```
+
+---
+
+## Deploying to Cloudflare
+
+The Worker, its D1 database (`tock`, EU jurisdiction) and secrets live in
+Cloudflare. Deploy from the repo root:
+
+```bash
+pnpm run deploy
+```
+
+This builds the web app and deploys the Worker with its static assets and the
+minute Cron Trigger. Secrets are managed with
+`pnpm -F graphql-api exec wrangler secret put <NAME>`.
+
+Schema changes to production D1 are not applied by `deploy`. Apply them with
+`wrangler d1 execute DB --remote` or `pnpm -F database migrate` (needs
+`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID` and a D1-scoped
+`CLOUDFLARE_API_TOKEN`).

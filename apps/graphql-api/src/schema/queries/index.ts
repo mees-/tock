@@ -6,7 +6,7 @@ import { jobs, users } from "database"
 import { eq, and, desc } from "drizzle-orm"
 import { NotFoundError } from "../../errors"
 import { env } from "../../env"
-import { db } from "database"
+import type { Database } from "database"
 
 builder.queryField("me", t =>
   t.field({
@@ -17,7 +17,7 @@ builder.queryField("me", t =>
   }),
 )
 
-export async function canSignup(database: typeof db) {
+export async function canSignup(database: Database) {
   if (!env.COMMUNITY_EDITION) {
     // cloud mode: open registration
     return true
