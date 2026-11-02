@@ -15,12 +15,7 @@
       "database_id": "ec55b4da-b8ce-4520-a455-4db14e579d0a",
     },
   ],
-  "routes": [
-    { "pattern": "tock.run", "custom_domain": true },
-    { "pattern": "api.tock.run", "custom_domain": true },
-    { "pattern": "stripe.tock.run", "custom_domain": true },
-    { "pattern": "tock.mees.sh", "custom_domain": true },
-  ],
+  "routes": [{ "pattern": "tock.run", "custom_domain": true }],
   "triggers": {
     "crons": ["* * * * *"],
   },
